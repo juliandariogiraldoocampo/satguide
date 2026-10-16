@@ -1,0 +1,32 @@
+[
+  {
+    "version": "2.0.1",
+    "date": "16-10-2026",
+    "changes": [
+      "Mapa base satelital gratuito (Esri World Imagery) en reemplazo de CARTO, que ahora exige API key",
+      "Capa opcional de límites y nombres de lugares con selector de capas en el mapa"
+    ]
+  },
+  {
+    "version": "2.0.0",
+    "date": "05-04-2026",
+    "changes": [
+      "Se agrega generación de script en JavaScript para usar en Google Earth Engine",
+      "El script generado recorta las escenas, y obtiene el mopsaico de mejor calidad",
+      "El Script exporta el resultado a Google Drive en formato GeoTIFF",
+      "Se agrega generación de script en Python para usar en Colab (en Beta)",
+      "Se incorporan manuales de creación de cuentas en la ayuda",
+      "Se incorporan especificaciones de índices espectrales en la Referencia Técnica"
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "date": "20-03-2026",
+    "changes": [
+      "Módulo de Orientación con análisis guiado",
+      "Módulo de Búsqueda con selección de colecciones",
+      "Módulo de Referencia con fichas técnicas",
+      "Integración con Leaflet para visualización de resultados"
+    ]
+  }
+]

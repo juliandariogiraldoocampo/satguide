@@ -1,0 +1,8 @@
+# Copias de respaldo manuales (el historial de git las reemplaza)
+index - copia*.html
+
+# Duplicados binarios de la documentación en Markdown
+docs/*.docx
+
+# Estado local de herramientas
+.remember/

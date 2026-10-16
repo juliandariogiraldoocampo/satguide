@@ -1,0 +1,3756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SatGuide · Imágenes Satelitales para SIG</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600&family=Outfit:wght@300;400&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --bg:      #080b12;
+  --s1:      #0e1220;
+  --s2:      #141927;
+  --s3:      #1b2235;
+  --border:  #1e2740;
+  --border2: #263050;
+  --accent:  #5ee3c0;
+  --accent2: #3b7fff;
+  --gold:    #f0c040;
+  --warn:    #f97316;
+  --err:     #f43f5e;
+  --text:    #dde5f5;
+  --muted:   #8fa0c0;
+  --dim:     #4a5c80;
+  --syne:    'Syne', sans-serif;
+  --outfit:  'Outfit', sans-serif;
+  --mono:    'JetBrains Mono', monospace;
+  --body:    'Instrument Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--s1); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════ */
+#app {
+  display: grid;
+  grid-template-rows: 58px 1fr;
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+header {
+  background: linear-gradient(90deg, var(--s1) 0%, #0e1525 100%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 10px 24px;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 9000;
+}
+.logo-mark {
+  font-family: var(--syne);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -1px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.logo-mark span { color: var(--text); font-weight: 400; }
+.help-accordion { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.hacc-item { border-bottom: 1px solid var(--border); }
+.hacc-item:last-child { border-bottom: none; }
+.hacc-btn {
+  width: 100%; display: flex; align-items: center; gap: 0;
+  background: var(--s1); border: none; padding: 14px 18px;
+  cursor: pointer; text-align: left; transition: background .15s;
+}
+.hacc-btn:hover { background: var(--s2); }
+.hacc-arrow { margin-left: auto; color: var(--muted); font-size: 16px; transition: transform .2s; }
+.hacc-btn.open .hacc-arrow { transform: rotate(180deg); }
+.hacc-body {
+  display: none; padding: 16px 20px 20px;
+  background: var(--s2); border-top: 1px solid var(--border);
+  font-size: 14px; color: var(--muted); line-height: 2;
+}
+.hacc-body.open { display: block; }
+.hacc-body ol { padding-left: 20px; }
+.hacc-body li { margin-bottom: 2px; }
+.hacc-body strong { color: var(--text); }
+.hacc-body p { line-height: 1.8; }
+
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-left: 1px solid var(--border);
+  padding-left: 16px;
+}
+nav {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.nav-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all .15s;
+}
+.nav-btn:hover { color: var(--text); border-color: var(--border2); }
+.nav-btn.active { color: var(--accent); border-color: rgba(94,227,192,.3); background: rgba(94,227,192,.05); }
+
+/* ═══════════════════════════════════════════
+   PAGES
+═══════════════════════════════════════════ */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ═══════════════════════════════════════════
+   PAGE: ORIENTACIÓN
+═══════════════════════════════════════════ */
+#page-orientacion {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+}
+
+.page-hero {
+  margin-bottom: 48px;
+}
+.page-hero h1 {
+  font-family: var(--outfit);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -1px;
+  margin-bottom: 12px;
+}
+.page-hero h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+.page-hero p {
+  color: var(--muted);
+  max-width: 600px;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+/* WIZARD */
+.wizard-step {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 20px;
+  transition: border-color .2s;
+}
+.wizard-step.active-step { border-color: var(--border2); }
+.wizard-step.completed-step { border-color: rgba(94,227,192,.2); }
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.step-num {
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(94,227,192,.1);
+  border: 1px solid rgba(94,227,192,.25);
+  border-radius: 4px;
+  padding: 3px 8px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.step-title {
+  font-family: var(--outfit);
+  font-size: 17px;
+  font-weight: 700;
+}
+.step-subtitle { font-size: 17px; color: var(--muted); }
+
+/* ANALYSIS GRID */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 700px) {
+  .analysis-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.analysis-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  background: var(--s2);
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.analysis-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--card-color, var(--accent));
+  transform: scaleX(0);
+  transition: transform .2s;
+}
+.analysis-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.analysis-card:hover::before, .analysis-card.selected::before { transform: scaleX(1); }
+.analysis-card.selected {
+  border-color: var(--card-color, var(--accent));
+  background: var(--s3);
+}
+.ac-icon { font-size: 22px; margin-bottom: 8px; }
+.ac-name { font-family: var(--outfit); font-size: 15px; font-weight: 300; margin-bottom: 4px; }
+.ac-desc { font-size: 15px; color: var(--muted); line-height: 1.5; }
+
+/* RECOMMENDATION PANEL */
+#rec-panel {
+  display: none;
+  background: var(--s1);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 20px;
+  animation: fadeIn .3s ease;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+.rec-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.rec-icon { font-size: 36px; flex-shrink: 0; }
+.rec-title { font-family: var(--outfit); font-size: 20px; font-weight: 400; }
+.rec-subtitle { font-size: 17px; color: var(--muted); margin-top: 4px; }
+
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.sensor-rec {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 3px solid var(--sensor-color, var(--accent));
+}
+.sr-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sr-badge {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+}
+.sr-name { font-family: var(--outfit); font-size: 17px; font-weight: 300; }
+.sr-why { font-size: 17px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+.sr-bands { display: flex; flex-wrap: wrap; gap: 5px; }
+.band-tag {
+  font-family: var(--mono);
+  font-size: 15px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  color: var(--dim);
+}
+.band-tag.key { color: var(--accent); border-color: rgba(94,227,192,.3); }
+
+.rec-warning {
+  background: rgba(249,115,22,.08);
+  border: 1px solid rgba(249,115,22,.25);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 17px;
+  color: #fba060;
+  line-height: 1.7;
+  display: none;
+}
+.rec-warning.show { display: block; }
+
+/* CTA BUTTON */
+.cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: #000;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all .15s;
+  margin-top: 16px;
+}
+.cta-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.cta-btn.sec {
+  background: transparent;
+  color: var(--accent2);
+  border: 1px solid var(--accent2);
+}
+.cta-btn.sec:hover { background: rgba(59,127,255,.1); }
+
+/* ═══════════════════════════════════════════
+   PAGE: BÚSQUEDA
+═══════════════════════════════════════════ */
+#page-busqueda {
+  display: none;
+  grid-template-columns: 380px 1fr;
+  height: calc(100vh - 58px);
+}
+#page-busqueda.active { display: grid; }
+
+/* SEARCH PANEL */
+#search-panel {
+  background: var(--s1);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.sp-section {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sp-label {
+  font-family: var(--mono);
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sp-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* COLLECTION TABS */
+.coll-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.coll-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  background: var(--s2);
+  transition: all .15s;
+  text-align: left;
+}
+.coll-card:hover { border-color: var(--border2); }
+.coll-card.on {
+  border-color: var(--coll-color, var(--accent));
+  background: var(--s3);
+}
+.coll-card.on .cc-name { color: var(--coll-color, var(--accent)); }
+.cc-name { font-family: var(--mono); font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+.cc-res { font-size: 16px; color: var(--muted); }
+.cc-portal { font-size: 14px; color: var(--dim); margin-top: 3px; font-family: var(--mono); }
+
+/* DEM RADIO */
+.dem-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+.dem-btn {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 5px;
+  cursor: pointer;
+  background: var(--s2);
+  text-align: center;
+  transition: all .15s;
+}
+.dem-btn:hover { border-color: var(--border2); }
+.dem-btn.on { border-color: var(--gold); background: rgba(240,192,64,.05); }
+.dem-btn .dn { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text); }
+.dem-btn .dr { font-size: 15px; color: var(--muted); margin-top: 2px; }
+.dem-btn.on .dn { color: var(--gold); }
+
+/* FORM ELEMENTS */
+label.lbl {
+  display: block;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 5px;
+  margin-top: 12px;
+  text-transform: uppercase;
+}
+label.lbl:first-child { margin-top: 0; }
+input[type=date], input[type=number], input[type=text], select {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, select:focus { border-color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 4px 0; }
+.range-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+#cloud-display { color: var(--accent); }
+
+/* BBOX DISPLAY */
+.bbox-disp {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--muted);
+  min-height: 36px;
+  line-height: 1.8;
+}
+.bbox-disp .bv { color: var(--accent); }
+
+/* BUTTONS IN PANEL */
+.sp-btn {
+  width: 100%;
+  padding: 9px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: none;
+  transition: all .15s;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sp-btn-prim { background: var(--accent); color: #000; }
+.sp-btn-prim:hover { filter: brightness(1.08); }
+.sp-btn-prim:disabled { opacity: .35; cursor: not-allowed; }
+.sp-btn-ghost {
+  background: transparent;
+  color: var(--err);
+  border: 1px solid rgba(244,63,94,.3);
+  font-size: 15px;
+  padding: 6px;
+}
+.sp-btn-ghost:hover { background: rgba(244,63,94,.07); }
+.sp-btn-ext {
+  background: transparent;
+  color: var(--accent2);
+  border: 1px solid rgba(59,127,255,.35);
+}
+.sp-btn-ext:hover { background: rgba(59,127,255,.08); }
+
+/* MAP AREA */
+#map-area {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+#map { flex: 1; }
+.leaflet-container { background: #05070d !important; }
+.leaflet-control-zoom a {
+  background: var(--s2) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* RESULTS OVERLAY */
+#results-bar {
+  background: var(--s1);
+  border-top: 1px solid var(--border);
+  max-height: 260px;
+  overflow-y: auto;
+  display: none;
+}
+.rb-header {
+  padding: 10px 16px;
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rb-count { color: var(--accent); font-weight: 700; }
+#results-list { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+.result-card {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.result-card:hover { border-color: var(--border2); }
+.result-card.active-r { border-color: var(--accent); }
+.rc-name { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+.rc-meta { font-size: 17px; color: var(--muted); margin-top: 2px; }
+.rc-cloud {
+  font-family: var(--mono);
+  font-size: 17px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.cloud-low  { background: rgba(94,227,192,.1);  color: var(--accent); border: 1px solid rgba(94,227,192,.2); }
+.cloud-mid  { background: rgba(240,192,64,.1);  color: var(--gold);   border: 1px solid rgba(240,192,64,.2); }
+.cloud-high { background: rgba(244,63,94,.1);   color: var(--err);    border: 1px solid rgba(244,63,94,.2); }
+
+/* DOWNLOAD ROW */
+.dl-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.dl-actions { flex-direction: column; gap: 6px; }
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: all .15s;
+  text-transform: uppercase;
+}
+.dl-cdse { background: rgba(94,227,192,.12); color: var(--accent); border: 1px solid rgba(94,227,192,.25); }
+.dl-cdse:hover { background: rgba(94,227,192,.2); }
+.dl-asf   { background: rgba(59,127,255,.12); color: var(--accent2); border: 1px solid rgba(59,127,255,.25); }
+.dl-asf:hover   { background: rgba(59,127,255,.2); }
+.dl-copy  { background: rgba(94,227,192,.08); color: var(--accent); border: 1px solid rgba(94,227,192,.25); }
+.dl-copy:hover  { background: rgba(94,227,192,.18); }
+.dl-ee    { background: rgba(168,85,247,.12); color: #a855f7; border: 1px solid rgba(168,85,247,.25); }
+.dl-ee:hover    { background: rgba(168,85,247,.2); }
+
+.gee-opt-btn {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+  text-align: left;
+}
+.gee-opt-btn:hover { border-color: var(--border2); color: var(--text); }
+.gee-opt-btn.dl-ee { border-color: rgba(168,85,247,.35); color: #a855f7; }
+
+/* LOG */
+#search-log {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--muted);
+  padding: 6px 10px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  max-height: 56px;
+  overflow-y: auto;
+  display: none;
+  line-height: 1.9;
+  margin-top: 6px;
+}
+.l-ok  { color: var(--accent); }
+.l-err { color: var(--err); }
+.l-inf { color: var(--gold); }
+
+/* ═══════════════════════════════════════════
+   PAGE: REFERENCIA
+═══════════════════════════════════════════ */
+#page-referencia {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+#page-referencia h2 {
+  font-family: var(--outfit);
+  font-size: 28px;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+#page-referencia .sub {
+  color: var(--muted);
+  font-size: 15px;
+  margin-bottom: 36px;
+}
+
+.ref-section {
+  margin-bottom: 44px;
+}
+.ref-section-title {
+  font-family: var(--outfit);
+  font-size: 20px;
+  font-weight: 400;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ref-section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* BAND TABLE */
+.band-table { width: 100%; border-collapse: collapse; font-size: 17px; }
+.band-table th {
+  font-family: var(--mono);
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.band-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.band-table tr:last-child td { border-bottom: none; }
+.band-table tr:hover td { background: var(--s2); }
+.bt-band { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+.bt-nm   { font-family: var(--mono); font-size: 15px; color: var(--muted); }
+.bt-res  { font-family: var(--mono); font-size: 15px; }
+.bt-use  { color: var(--muted); line-height: 1.5; }
+.band-swatch {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* INDEX CARDS */
+.idx-category { margin-bottom: 24px; }
+.idx-cat-label {
+  font-family: var(--mono);
+  font-size: 15px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.idx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.idx-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  border-top: 3px solid var(--idx-color, var(--accent));
+}
+.idx-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.idx-name {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--idx-color, var(--accent));
+}
+.idx-sensors {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--dim);
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.idx-fullname {
+  font-size: 15px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.idx-formula {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+.idx-ranges { margin-bottom: 10px; }
+.idx-range-row {
+  display: flex;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.9;
+}
+.idx-range-val {
+  font-family: var(--mono);
+  color: var(--idx-color, var(--accent));
+  min-width: 80px;
+  flex-shrink: 0;
+}
+.idx-range-label { color: var(--muted); }
+.idx-uses {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.idx-uses li { margin-left: 14px; }
+
+/* POLARIZATION CARDS */
+.pol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.pol-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  border-top: 3px solid var(--pc-color, var(--accent));
+}
+.pol-code {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pc-color, var(--accent));
+  margin-bottom: 6px;
+}
+.pol-desc { font-size: 17px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+.pol-uses { font-size: 15px; line-height: 1.7; }
+.pol-uses li { margin-left: 14px; }
+
+/* DEM COMPARISON */
+.dem-comp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dem-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.dem-card.best { border-color: rgba(94,227,192,.35); }
+.dc-name { font-family: var(--mono); font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.dc-res  { font-size: 20px; font-family: var(--outfit); font-weight: 600; color: var(--gold); line-height: 1; }
+.dc-unit { font-size: 17px; color: var(--muted); }
+.dc-note { font-size: 15px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+.dc-warn { font-size: 17px; color: var(--err); margin-top: 6px; }
+.dc-portal { font-family: var(--mono); font-size: 15px; color: var(--dim); margin-top: 6px; }
+.badge-best {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 17px;
+  letter-spacing: 1px;
+  background: rgba(94,227,192,.1);
+  color: var(--accent);
+  border: 1px solid rgba(94,227,192,.3);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-top: 6px;
+}
+
+/* ACCORDION */
+.acc-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.acc-head {
+  background: var(--s2);
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--outfit);
+  font-size: 15px;
+  font-weight: 600;
+  transition: background .15s;
+  user-select: none;
+}
+.acc-head:hover { background: var(--s3); }
+.acc-arrow { transition: transform .2s; color: var(--muted); }
+.acc-item.open .acc-arrow { transform: rotate(90deg); }
+.acc-body {
+  display: none;
+  padding: 16px;
+  background: var(--s1);
+  font-size: 17px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.acc-body.show { display: block; }
+.acc-body strong { color: var(--text); }
+.acc-body code {
+  font-family: var(--mono);
+  font-size: 15px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: var(--accent);
+}
+
+/* SPINNER */
+.spin-wrap { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:500; }
+.spin-wrap.show { display:block; }
+.spin {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: sp .7s linear infinite;
+}
+@keyframes sp { to { transform: rotate(360deg); } }
+
+/* TOOLTIP */
+.tip-wrap { position: relative; display: inline-block; }
+.tip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--muted);
+  cursor: help;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.tip-box {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.6;
+  width: 220px;
+  z-index: 9999;
+  white-space: normal;
+  pointer-events: none;
+}
+.tip-wrap:hover .tip-box { display: block; }
+
+/* MAP INSTRUCTION */
+.map-instruction {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14,18,32,.9);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--muted);
+  z-index: 500;
+  pointer-events: none;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header>
+  <img src="logo.svg" alt="SatGuide" style="height:44px;width:auto;max-width:260px;display:block;object-fit:contain;">
+  <nav>
+    <button class="nav-btn active" onclick="showPage('orientacion', this)">Orientación</button>
+    <button class="nav-btn" onclick="showPage('busqueda', this)">Búsqueda</button>
+    <button class="nav-btn" onclick="showPage('referencia', this)">Referencia</button>
+    <button class="nav-btn" onclick="showPage('ayuda', this)">Ayuda</button>
+    <button class="nav-btn" onclick="showPage('acerca', this)">Acerca de...</button>
+  </nav>
+</header>
+
+<!-- ═══════════════ PAGE: ORIENTACIÓN ═══════════════ -->
+<div id="page-orientacion" class="page active">
+  <div class="page-hero">
+    <h1>¿Qué <em>datos</em> necesitas<br>para tu análisis?</h1>
+    <p>Selecciona el tipo de análisis que vas a realizar. La herramienta te recomendará el sensor, las bandas o polarizaciones adecuadas y te llevará directamente a buscar las escenas disponibles.</p>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="wizard-step active-step" id="step1">
+    <div class="step-header">
+      <div>
+        <div class="step-title">Tipo de análisis</div>
+        <div class="step-subtitle">Selecciona el problema que quieres resolver</div>
+      </div>
+    </div>
+    <div class="analysis-grid" id="analysis-grid"></div>
+  </div>
+
+  <!-- RECOMENDACIÓN -->
+  <div id="rec-panel">
+    <div class="rec-header">
+      <div class="rec-icon" id="rec-icon"></div>
+      <div>
+        <div class="rec-title" id="rec-title"></div>
+        <div class="rec-subtitle" id="rec-subtitle"></div>
+      </div>
+    </div>
+    <div class="rec-grid" id="rec-grid"></div>
+    <div class="rec-warning" id="rec-warning"></div>
+    <button class="cta-btn" onclick="goSearch()">Buscar escenas disponibles →</button>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: BÚSQUEDA ═══════════════ -->
+<div id="page-busqueda" class="page">
+
+  <!-- PANEL -->
+  <div id="search-panel">
+
+    <div class="sp-section">
+      <div class="sp-label">Colección</div>
+      <div class="coll-grid" id="coll-grid"></div>
+    </div>
+
+    <div class="sp-section" id="dem-section" style="display:none">
+      <div class="sp-label">Modelo de elevación</div>
+      <div class="dem-grid" id="dem-grid"></div>
+      <div style="margin-top:10px; font-size:15px; color:var(--muted); line-height:1.6;" id="dem-note"></div>
+    </div>
+
+    <div class="sp-section" id="date-section">
+      <div class="sp-label">Rango de fechas</div>
+      <label class="lbl">Desde</label>
+      <input type="date" id="d-start"/>
+      <label class="lbl">Hasta</label>
+      <input type="date" id="d-end"/>
+    </div>
+
+    <div class="sp-section" id="cloud-section">
+      <div class="sp-label">Cobertura de nubes
+        <div class="tip-wrap">
+          <span class="tip-icon">?</span>
+          <div class="tip-box">Porcentaje máximo de nubes sobre el área de interés. Para análisis de vegetación y suelo se recomienda ≤ 20%. Para SAR y DEM este filtro no aplica.</div>
+        </div>
+      </div>
+      <input type="range" id="cloud-range" min="0" max="100" value="20"
+             oninput="document.getElementById('cloud-display').textContent=this.value+'%'"/>
+      <div class="range-row">
+        <span>0%</span>
+        <span>Máx. nubes: <span id="cloud-display">20%</span></span>
+        <span>100%</span>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-label">Área de interés</div>
+      <div class="bbox-disp" id="bbox-disp">— Dibuja un rectángulo en el mapa —</div>
+      <button class="sp-btn sp-btn-ghost" style="margin-top:6px" onclick="clearBbox()">✕ Limpiar área</button>
+    </div>
+
+    <div class="sp-section">
+      <div id="search-log"></div>
+      <button class="sp-btn sp-btn-prim" id="btn-search" onclick="doSearch()">⌕ Buscar escenas</button>
+      <button class="sp-btn sp-btn-ext" id="btn-browser" onclick="openBrowser()" style="display:none;margin-top:6px">↗ Abrir en Copernicus Browser</button>
+      <button class="sp-btn sp-btn-ext" id="btn-asf" onclick="openASF()" style="display:none;margin-top:6px">↗ Abrir en ASF Vertex (PALSAR)</button>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div id="map-area">
+    <div id="map"></div>
+    <div class="map-instruction" id="map-instr">Usa ◻ para dibujar el área de interés</div>
+    <div class="spin-wrap" id="spin-wrap"><div class="spin"></div></div>
+    <div id="results-bar">
+      <div class="rb-header">
+        <span>Escenas encontradas:</span>
+        <span class="rb-count" id="rb-count">0</span>
+        <span style="margin-left:auto; font-size:15px;">Haz clic en una escena para resaltarla en el mapa</span>
+      </div>
+      <div id="results-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: REFERENCIA ═══════════════ -->
+<div id="page-referencia" class="page">
+  <h2>Referencia técnica</h2>
+  <p class="sub">Guía de bandas espectrales, polarizaciones SAR y modelos de elevación digital disponibles.</p>
+
+  <!-- SENTINEL-2 BANDS -->
+  <div class="ref-section">
+    <div class="ref-section-title">Bandas Sentinel-2 MSI (13 bandas)</div>
+    <p style="font-size:15px;color:var(--muted);line-height:1.7;margin:-8px 0 14px;">
+      <strong style="color:var(--text);">MSI</strong> significa <em>MultiSpectral Instrument</em>, el sensor óptico de Sentinel-2 que captura 13 bandas en el visible, NIR y SWIR para análisis de vegetación, agua, suelo y uso del territorio.
+    </p>
+    <table class="band-table" id="s2-table"></table>
+  </div>
+
+  <!-- LANDSAT 8/9 BANDS -->
+  <div class="ref-section">
+    <div class="ref-section-title">Bandas Landsat 8/9 OLI/TIRS</div>
+    <p style="font-size:15px;color:var(--muted);line-height:1.7;margin:-8px 0 14px;">
+      <strong style="color:var(--text);">OLI/TIRS</strong> combina dos sensores: <em>OLI</em> (Operational Land Imager) para bandas ópticas y <em>TIRS</em> (Thermal Infrared Sensor) para bandas térmicas usadas en temperatura superficial e islas de calor.
+    </p>
+    <table class="band-table" id="ls-table"></table>
+  </div>
+
+  <!-- ÍNDICES ESPECTRALES -->
+  <div class="ref-section">
+    <div class="ref-section-title">Índices espectrales</div>
+    <div id="indices-container"></div>
+  </div>
+
+  <!-- SAR POLARIZATION -->
+  <div class="ref-section">
+    <div class="ref-section-title">Polarizaciones SAR — Sentinel-1 y ALOS PALSAR</div>
+    <div class="pol-grid" id="pol-grid"></div>
+    <div style="margin-top:14px; background:var(--s1); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:17px; color:var(--muted); line-height:1.8;">
+      <strong style="color:var(--text);">Modo de adquisición Sentinel-1 sobre tierra (IW — Interferometric Wide):</strong><br>
+      Cubre América Latina en modo <strong style="color:var(--text);">VV + VH</strong> por defecto. La banda C (5.6 cm) interactúa principalmente con la superficie y la capa superior del dosel. Para penetración bajo dosel denso (selva amazónica, bosque tropical) se prefiere la banda L de ALOS PALSAR (23 cm).
+    </div>
+  </div>
+
+  <!-- DEMs -->
+  <div class="ref-section">
+    <div class="ref-section-title">Modelos de Elevación Digital — comparativa</div>
+    <div class="dem-comp" id="dem-comp"></div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ PAGE: AYUDA ═══════════════ -->
+<div id="page-ayuda" class="page">
+  <div style="max-width:1000px;margin:0 auto;padding:40px 24px 80px;">
+
+    <div style="margin-bottom:36px;">
+      <div style="font-family:var(--outfit);font-size:28px;font-weight:400;color:var(--text);margin-bottom:8px;">Manual de uso</div>
+      <div style="font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:36px;">Guía de referencia para buscar y descargar imágenes satelitales con SatGuide.</div>
+    </div>
+
+    <!-- 1. USO GENERAL -->
+    <div style="margin-bottom:40px;">
+      <div style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">1. Uso general de la aplicación</div>
+      <p style="font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:14px;">SatGuide tiene tres módulos accesibles desde la barra de navegación superior:</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-family:var(--mono);font-size:15px;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">ORIENTACIÓN</div>
+          <div style="font-size:17px;color:var(--muted);line-height:1.7;">Selecciona el tipo de análisis. La app recomienda el sensor y las bandas adecuadas, y prefiltra las colecciones en el módulo de Búsqueda.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-family:var(--mono);font-size:15px;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">BÚSQUEDA</div>
+          <div style="font-size:17px;color:var(--muted);line-height:1.7;">Dibuja tu área de interés en el mapa, define el rango de fechas y la colección. Haz clic en <strong style="color:var(--text)">BUSCAR ESCENAS</strong> para ver los resultados.</div>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-family:var(--mono);font-size:15px;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">REFERENCIA</div>
+          <div style="font-size:17px;color:var(--muted);line-height:1.7;">Fichas técnicas de bandas espectrales, polarizaciones SAR, modelos de elevación digital y preguntas frecuentes.</div>
+        </div>
+      </div>
+      <p style="font-size:15px;color:var(--muted);line-height:1.8;"><strong style="color:var(--text)">Flujo recomendado:</strong> Orientación → identifica el sensor → Búsqueda con colecciones prefiltradas → descarga desde el portal.</p>
+    </div>
+
+    <!-- 2. ÁREA DE INTERÉS -->
+    <div style="margin-bottom:40px;">
+      <div style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">2. Cómo definir el área de interés</div>
+      <p style="font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:10px;">En el módulo de Búsqueda, dibuja un rectángulo sobre tu zona de estudio:</p>
+      <ol style="font-size:15px;color:var(--muted);line-height:2.2;padding-left:20px;">
+        <li>Haz clic en el ícono de <strong style="color:var(--text)">rectángulo</strong> en el panel izquierdo del mapa.</li>
+        <li>Arrastra sobre el mapa para definir el área.</li>
+        <li>Las coordenadas aparecen en el panel lateral bajo <strong style="color:var(--text)">Área de Interés</strong>.</li>
+        <li>Usa el ícono de <strong style="color:var(--text)">edición</strong> para modificar el área o la <strong style="color:var(--text)">papelera</strong> para eliminarla.</li>
+      </ol>
+    </div>
+
+    <!-- 3. DESCARGA POR COLECCIÓN -->
+    <div style="margin-bottom:40px;">
+      <div style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">3. Descarga según la colección</div>
+      <p style="font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:20px;">El comportamiento al hacer clic en <strong style="color:var(--text)">BUSCAR ESCENAS</strong> varía según la colección seleccionada. Haz clic en cada colección para ver los pasos.</p>
+
+      <div class="help-accordion">
+
+        <!-- Sentinel-2 -->
+        <div class="hacc-item">
+          <button class="hacc-btn" onclick="toggleHelpAcc(this)">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;background:rgba(94,227,192,.12);color:var(--accent);padding:3px 9px;border-radius:4px;">SENTINEL-2 L2A</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:10px;">Muestra tarjetas en el panel derecho</span>
+            <span class="hacc-arrow">▾</span>
+          </button>
+          <div class="hacc-body">
+            <ol>
+              <li>Las escenas aparecen a la derecha con miniatura, fecha e índice de nubosidad.</li>
+              <li>Haz clic en una tarjeta para ver los botones de acción.</li>
+              <li>Clic en <strong>📋 Copiar nombre</strong> para copiar el identificador exacto de la escena.</li>
+              <li>Clic en <strong>📥 Instrucciones de descarga</strong> — aparece un modal con los pasos detallados.</li>
+              <li>Abre el <strong>Copernicus Browser</strong> e inicia sesión (cuenta gratuita en dataspace.copernicus.eu).</li>
+              <li>Ve a la pestaña <strong>BUSCAR</strong>, pega el nombre, desplázate al final del panel y haz clic en <strong>BUSCAR</strong>.</li>
+              <li>En el resultado, haz clic en <strong>⬇ Download</strong> para descargar el .zip con todas las bandas GeoTIFF.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Sentinel-1 -->
+        <div class="hacc-item">
+          <button class="hacc-btn" onclick="toggleHelpAcc(this)">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;background:rgba(94,227,192,.12);color:var(--accent);padding:3px 9px;border-radius:4px;">SENTINEL-1 GRD</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:10px;">Muestra tarjetas en el panel derecho</span>
+            <span class="hacc-arrow">▾</span>
+          </button>
+          <div class="hacc-body">
+            <p>El flujo es idéntico al de Sentinel-2. Las escenas SAR no tienen índice de nubosidad — la tarjeta muestra <strong>SAR</strong> en lugar del porcentaje de nubes. Los pasos de descarga son los mismos: copiar nombre → instrucciones → Copernicus Browser → BUSCAR → Download.</p>
+          </div>
+        </div>
+
+        <!-- Landsat -->
+        <div class="hacc-item">
+          <button class="hacc-btn" onclick="toggleHelpAcc(this)">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;background:rgba(240,192,64,.12);color:var(--gold);padding:3px 9px;border-radius:4px;">LANDSAT HLS L30</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:10px;">Abre directamente NASA Earthdata Search</span>
+            <span class="hacc-arrow">▾</span>
+          </button>
+          <div class="hacc-body">
+            <ol>
+              <li>Al hacer clic en <strong>BUSCAR ESCENAS</strong>, se abre automáticamente <strong>NASA Earthdata Search</strong> con tu área de interés y fechas ya aplicadas.</li>
+              <li>Inicia sesión con tu cuenta NASA Earthdata (gratuita en urs.earthdata.nasa.gov).</li>
+              <li>El portal muestra los granules de Landsat 8/9 disponibles para tu zona.</li>
+              <li>Selecciona los granules que necesitas y haz clic en <strong>Download All</strong> o en el ícono de descarga individual.</li>
+              <li>Cada granule contiene las bandas como archivos GeoTIFF individuales (B02.TIF, B03.TIF, etc.).</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- PALSAR -->
+        <div class="hacc-item">
+          <button class="hacc-btn" onclick="toggleHelpAcc(this)">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;background:rgba(59,127,255,.12);color:var(--accent2);padding:3px 9px;border-radius:4px;">ALOS PALSAR RTC</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:10px;">Muestra tarjetas · descarga en ASF Vertex</span>
+            <span class="hacc-arrow">▾</span>
+          </button>
+          <div class="hacc-body">
+            <ol>
+              <li>Las escenas aparecen en el panel derecho con nombre, fecha y polarización.</li>
+              <li>Haz clic en una tarjeta y luego en <strong>↗ ASF Vertex</strong>.</li>
+              <li>El portal abre con tu área preconfigurada como polígono de búsqueda.</li>
+              <li>Inicia sesión con tu cuenta NASA Earthdata (la misma que para Landsat).</li>
+              <li>Selecciona las escenas y descarga desde el panel de resultados.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- COP-DEM -->
+        <div class="hacc-item">
+          <button class="hacc-btn" onclick="toggleHelpAcc(this)">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;background:rgba(240,192,64,.12);color:var(--gold);padding:3px 9px;border-radius:4px;">COP-DEM GLO-30 / GLO-90</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:10px;">Modal con instrucciones · Copernicus Browser</span>
+            <span class="hacc-arrow">▾</span>
+          </button>
+          <div class="hacc-body">
+            <ol>
+              <li>Aparece un modal con instrucciones paso a paso.</li>
+              <li>Abre el <strong>Copernicus Browser</strong> e inicia sesión con tu cuenta CDSE.</li>
+              <li>Navega a tu área de interés y en la pestaña <strong>VISUALIZAR</strong>, selecciona <strong>Copernicus DEM → Copernicus 30</strong>.</li>
+              <li>Haz clic en <strong>"Encontrar productos para la vista actual"</strong>.</li>
+              <li>Haz clic en <strong>⬇ Download</strong> en cada tile que necesites. Cada uno es un GeoTIFF listo para QGIS o ArcGIS Pro.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- SRTM / NASADEM / AW3D30 -->
+        <div class="hacc-item">
+          <button class="hacc-btn" onclick="toggleHelpAcc(this)">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;background:rgba(240,192,64,.12);color:var(--gold);padding:3px 9px;border-radius:4px;">SRTM · NASADEM · AW3D30</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:10px;">Modal con instrucciones · OpenTopography</span>
+            <span class="hacc-arrow">▾</span>
+          </button>
+          <div class="hacc-body">
+            <ol>
+              <li>Aparece un modal con un botón que abre <strong>OpenTopography</strong> con las coordenadas de tu área ya incluidas.</li>
+              <li>Verifica que el área resaltada en el mapa corresponde a tu zona de estudio.</li>
+              <li>Selecciona formato de salida <strong>GeoTIFF</strong> y haz clic en <strong>Submit</strong>.</li>
+              <li>La descarga inicia sin necesidad de crear cuenta.</li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+        <!-- 4. CUENTAS REQUERIDAS -->
+    <div style="margin-bottom:40px;">
+      <div style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">4. Cuentas requeridas por portal</div>
+      
+      <!-- Portales de descarga -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:15px;color:var(--text);font-weight:500;margin-bottom:6px;">Copernicus CDSE</div>
+          <div style="font-size:17px;color:var(--muted);line-height:1.7;margin-bottom:8px;">Para descargar Sentinel-1, Sentinel-2 y COP-DEM.</div>
+          <a href="https://dataspace.copernicus.eu" target="_blank" style="font-family:var(--mono);font-size:15px;color:var(--accent2);text-decoration:none;">dataspace.copernicus.eu →</a>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:15px;color:var(--text);font-weight:500;margin-bottom:6px;">NASA Earthdata</div>
+          <div style="font-size:17px;color:var(--muted);line-height:1.7;margin-bottom:8px;">Para descargar Landsat y ALOS PALSAR desde ASF.</div>
+          <a href="https://urs.earthdata.nasa.gov" target="_blank" style="font-family:var(--mono);font-size:15px;color:var(--accent2);text-decoration:none;">urs.earthdata.nasa.gov →</a>
+        </div>
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:15px;color:var(--text);font-weight:500;margin-bottom:6px;">OpenTopography</div>
+          <div style="font-size:17px;color:var(--muted);line-height:1.7;margin-bottom:8px;">Sin cuenta requerida para SRTM, NASADEM y AW3D30.</div>
+          <a href="https://portal.opentopography.org" target="_blank" style="font-family:var(--mono);font-size:15px;color:var(--accent2);text-decoration:none;">portal.opentopography.org →</a>
+        </div>
+      </div>
+      
+      <!-- GEE - sección especial -->
+      <div style="background:rgba(59,127,255,.08);border:1px solid rgba(59,127,255,.25);border-radius:10px;padding:18px 20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <span style="font-size:24px;">🌐</span>
+          <div>
+            <div style="font-size:16px;color:var(--text);font-weight:600;">Google Earth Engine</div>
+            <div style="font-size:13px;color:#93c5fd;">Plataforma de análisis avanzado - requiere cuenta especial</div>
+          </div>
+        </div>
+        <div style="font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:10px;">
+          Para análisis avanzado, cálculo de índices y generación de scripts. Ver sección 5 para instructivo de registro.
+        </div>
+        <a href="https://earthengine.google.com/signup" target="_blank" style="display:inline-block;background:rgba(59,127,255,.12);color:#93c5fd;border:1px solid rgba(59,127,255,.25);font-family:var(--mono);font-size:14px;padding:8px 14px;border-radius:6px;text-decoration:none;">
+          Registrarse en GEE →
+        </a>
+      </div>
+    </div>
+
+    <!-- 5. CÓMO CREAR CUENTA DE GEE -->
+    <div style="margin-bottom:40px;">
+      <div style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">5. Cómo crear cuenta de Google Earth Engine</div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px;">
+        <div style="font-size:16px;color:var(--text);line-height:1.8;margin-bottom:16px;">
+          <strong style="color:var(--accent);">Paso 1:</strong> Ve a <a href="https://earthengine.google.com/signup" target="_blank" style="color:var(--accent2);">earthengine.google.com/signup</a>
+        </div>
+        <div style="font-size:16px;color:var(--text);line-height:1.8;margin-bottom:16px;">
+          <strong style="color:var(--accent);">Paso 2:</strong> Inicia sesión con tu cuenta Gmail o crea una si no tienes.
+        </div>
+        <div style="font-size:16px;color:var(--text);line-height:1.8;margin-bottom:16px;">
+          <strong style="color:var(--accent);">Paso 3:</strong> Completa el formulario con:<br>
+          &nbsp;• Nombre completo<br>
+          &nbsp;• Organización / Universidad<br>
+          &nbsp;• País<br>
+          &nbsp;• Tipo de uso (Investigación, Educación, sin fines de lucro)<br>
+          &nbsp;• <strong>Proyecto:</strong> Describe tu proyecto (ej: "Análisis de cambio de cobertura para tesis de maestría en Colombia")<br>
+          &nbsp;• <strong>Google Cloud:</strong> Recomendado crear proyecto en console.cloud.google.com para gestionar recursos y créditos (ECCU). proyectos académicos pueden solicitar créditos grants.
+        </div>
+        <div style="font-size:16px;color:var(--text);line-height:1.8;margin-bottom:16px;">
+          <strong style="color:var(--accent);">Paso 4:</strong> Acepta los Términos de Servicio y espera la aprobación (generalmente inmediata para cuentas académicas).
+        </div>
+        <div style="font-size:16px;color:var(--text);line-height:1.8;margin-bottom:16px;">
+          <strong style="color:var(--accent);">Paso 5:</strong> Una vez aprobado, ingresa al <strong>Code Editor</strong>: <a href="https://code.earthengine.google.com" target="_blank" style="color:var(--accent2);">code.earthengine.google.com</a>
+        </div>
+        <div style="font-size:15px;color:var(--muted);line-height:1.7;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <strong>Nota:</strong> GEE es gratuito para investigación y educación. En SatGuide, los scripts generados pueden copiarse y pegarse directamente en el Code Editor de GEE.<br><br>
+          <strong>Sobre créditos (ECCU):</strong> Los proyectos nuevos reciben ~$300 USD de créditos gratuitos. Para proyectos académicos más grandes, solicita <a href="https://developers.google.com/earth-engine/credits" target="_blank" style="color:var(--accent2);">Google Earth Engine Research Grants</a>:
+          <ul style="margin-top:8px;margin-left:20px;">
+            <li><strong>Colaboradores:</strong> hasta 150 ECCU/año (investigación individual)</li>
+            <li><strong>Comunidades:</strong> hasta 1000 ECCU/año (proyectos colectivos, ONGs, universidades)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. PREGUNTAS FRECUENTES -->
+    <div style="margin-bottom:40px;">
+      <div style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">6. Preguntas frecuentes</div>
+      <div id="faq-container"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: ACERCA ═══════════════ -->
+<div id="page-acerca" class="page">
+  <div style="max-width:1000px;margin:0 auto;padding:40px 24px 80px;">
+    <h1 style="font-family:var(--outfit);font-size:28px;color:var(--text);margin-bottom:8px;">Acerca de SatGuide</h1>
+    <p style="font-size:15px;color:var(--muted);margin-bottom:36px;">Información sobre el autor y historial de versiones.</p>
+    
+    <h2 style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;">Información del autor</h2>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:40px;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+        <img src="img/jdgo.jpg" alt="Julián Giraldo" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">
+        <div>
+          <div style="font-size:18px;font-weight:600;color:var(--text);">Ing. Julián Darío Giraldo Ocampo</div>
+          <div style="font-size:14px;color:var(--muted);">Desarrollador</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div style="font-size:14px;">
+          <div style="color:var(--muted);margin-bottom:4px;">WhatsApp</div>
+          <a href="https://wa.me/573012858725" style="color:var(--accent);">301 285 8725</a>
+        </div>
+        <div style="font-size:14px;">
+          <div style="color:var(--muted);margin-bottom:4px;">Institucional</div>
+          <a href="mailto:juliangiraldo@lepoli.edu.co" style="color:var(--accent);">juliangiraldo@lepoli.edu.co</a>
+        </div>
+        <div style="font-size:14px;">
+          <div style="color:var(--muted);margin-bottom:4px;">Personal</div>
+          <a href="mailto:ingenieria@juliangiraldo.co" style="color:var(--accent);">ingenieria@juliangiraldo.co</a>
+        </div>
+      </div>
+    </div>
+
+    <h2 style="font-family:var(--outfit);font-size:20px;color:var(--text);margin-bottom:16px;">Historial de versiones</h2>
+    <div id="version-history"></div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════════════════
+//  DATOS
+// ══════════════════════════════════════════════════
+
+const ANALYSIS_TYPES = [
+  {
+    id: 'clasificacion',
+    icon: '🗺️',
+    name: 'Clasificación de coberturas',
+    desc: 'Vegetación, suelo, agua, zonas urbanas',
+    color: '#5ee3c0',
+    sensors: [
+      {
+        id: 's2l2a', name: 'Sentinel-2 L2A', badge: 'S2-L2A',
+        color: '#5ee3c0',
+        portal: 'CDSE',
+        collection: 'sentinel-2-l2a',
+        why: 'Resolución de 10 m en bandas clave, revisita de 5 días. El nivel L2A incluye corrección atmosférica, listo para clasificación supervisada o no supervisada.',
+        key_bands: ['B02','B03','B04','B08'],
+        all_bands: ['B02','B03','B04','B08','B11','B12'],
+      }
+    ],
+    warning: null
+  },
+  {
+    id: 'vegetacion',
+    icon: '🌿',
+    name: 'Estado de vegetación',
+    desc: 'NDVI, LAI, biomasa, estrés hídrico',
+    color: '#22c55e',
+    sensors: [
+      {
+        id: 's2l2a', name: 'Sentinel-2 L2A', badge: 'S2-L2A',
+        color: '#5ee3c0',
+        portal: 'CDSE',
+        collection: 'sentinel-2-l2a',
+        why: 'Bandas Red Edge (B05, B06, B07) únicas de Sentinel-2. Permiten índices de clorofila más precisos que el NDVI clásico.',
+        key_bands: ['B04','B05','B06','B08','B08A'],
+        all_bands: ['B03','B04','B05','B06','B07','B08','B08A'],
+      }
+    ],
+    warning: null
+  },
+  {
+    id: 'suelo',
+    icon: '🪨',
+    name: 'Análisis de suelo / geología',
+    desc: 'Minerales arcillosos, óxidos, humedad',
+    color: '#f97316',
+    sensors: [
+      {
+        id: 's2l2a', name: 'Sentinel-2 L2A', badge: 'S2-L2A',
+        color: '#5ee3c0',
+        portal: 'CDSE',
+        collection: 'sentinel-2-l2a',
+        why: 'Bandas SWIR (B11 a 1610 nm, B12 a 2190 nm) discriminan minerales arcillosos, óxidos de hierro y contenido de humedad del suelo.',
+        key_bands: ['B11','B12'],
+        all_bands: ['B04','B08','B11','B12'],
+      },
+      {
+        id: 'ls', name: 'HLS L30 (Landsat 8/9)', badge: 'LS-L2',
+        color: '#f59e0b',
+        portal: 'USGS EarthExplorer',
+        collection: 'landsat',
+        why: 'Las bandas B6 (SWIR-1) y B7 (SWIR-2) de Landsat son equivalentes a B11/B12 de S2. Útil para series temporales largas.',
+        key_bands: ['B6','B7'],
+        all_bands: ['B4','B5','B6','B7'],
+      }
+    ],
+    warning: null
+  },
+  {
+    id: 'agua',
+    icon: '💧',
+    name: 'Cuerpos de agua / inundaciones',
+    desc: 'Detección, extensión, cambios',
+    color: '#3b82f6',
+    sensors: [
+      {
+        id: 's1', name: 'Sentinel-1 GRD', badge: 'S1-GRD',
+        color: '#818cf8',
+        portal: 'CDSE',
+        collection: 'sentinel-1-grd',
+        why: 'El agua libre produce retrodispersión muy baja en VV. Funciona de día y de noche, sin importar la cobertura de nubes — ideal para monitoreo de inundaciones.',
+        key_bands: ['VV'],
+        all_bands: ['VV','VH'],
+      },
+      {
+        id: 's2l2a', name: 'Sentinel-2 L2A', badge: 'S2-L2A',
+        color: '#5ee3c0',
+        portal: 'CDSE',
+        collection: 'sentinel-2-l2a',
+        why: 'MNDWI (B03 - B11 / B03 + B11) es el índice óptico más preciso para agua. Complementa al SAR en días despejados.',
+        key_bands: ['B03','B11'],
+        all_bands: ['B02','B03','B08','B11'],
+      }
+    ],
+    warning: null
+  },
+  {
+    id: 'urbano',
+    icon: '🏙️',
+    name: 'Análisis urbano',
+    desc: 'Expansión urbana, impermeabilidad, calor',
+    color: '#a78bfa',
+    sensors: [
+      {
+        id: 's2l2a', name: 'Sentinel-2 L2A', badge: 'S2-L2A',
+        color: '#5ee3c0',
+        portal: 'CDSE',
+        collection: 'sentinel-2-l2a',
+        why: 'Resolución de 10 m permite delimitar manzanas y zonas impermeables. NDBI (B11 - B08 / B11 + B08) cuantifica cobertura construida.',
+        key_bands: ['B08','B11'],
+        all_bands: ['B02','B03','B04','B08','B11','B12'],
+      },
+      {
+        id: 'ls', name: 'HLS L30 (Landsat 8/9)', badge: 'LS-L2',
+        color: '#f59e0b',
+        portal: 'USGS EarthExplorer',
+        collection: 'landsat',
+        why: 'Las bandas térmicas B10/B11 (TIRS) permiten mapear islas de calor urbano — capacidad inexistente en Sentinel-2.',
+        key_bands: ['B10','B11'],
+        all_bands: ['B4','B5','B6','B7','B10','B11'],
+      }
+    ],
+    warning: null
+  },
+  {
+    id: 'radar',
+    icon: '📡',
+    name: 'Análisis SAR / bajo dosel',
+    desc: 'Biomasa, humedad, cobertura bajo vegetación',
+    color: '#818cf8',
+    sensors: [
+      {
+        id: 's1', name: 'Sentinel-1 GRD', badge: 'S1-GRD',
+        color: '#818cf8',
+        portal: 'CDSE',
+        collection: 'sentinel-1-grd',
+        why: 'VH es sensible al volumen de vegetación. Banda C (5.6 cm) interactúa con la copa del dosel. Revisita de 6 días, todo clima.',
+        key_bands: ['VH'],
+        all_bands: ['VV','VH'],
+      },
+      {
+        id: 'palsar', name: 'ALOS-1 PALSAR RTC', badge: 'PALSAR',
+        color: '#f59e0b',
+        portal: 'ASF Vertex (NASA)',
+        collection: 'palsar',
+        why: 'Banda L (23 cm) penetra el dosel denso. Detecta estructuras bajo vegetación, humedad del suelo profundo y biomasa forestal con mayor precisión que Sentinel-1.',
+        key_bands: ['HH','HV'],
+        all_bands: ['HH','HV'],
+      }
+    ],
+    warning: 'ALOS-1 PALSAR: cobertura temporal 2006-2011. No hay continuidad de datos. Para análisis recientes considerar Sentinel-1 como complemento.'
+  },
+  {
+    id: 'dem',
+    icon: '⛰️',
+    name: 'Modelo de elevación (DEM)',
+    desc: 'Topografía, pendientes, cuencas, morfología',
+    color: '#f0c040',
+    sensors: [
+      {
+        id: 'copdem', name: 'COP-DEM GLO-30', badge: 'COP-DEM',
+        color: '#f0c040',
+        portal: 'CDSE',
+        collection: 'dem',
+        why: 'Mejor opción libre global. TanDEM-X interferométrico, 30 m de resolución. Supera al SRTM en calidad vertical y cobertura en zonas con vacíos.',
+        key_bands: ['DSM'],
+        all_bands: ['DSM'],
+      },
+      {
+        id: 'srtm', name: 'SRTM / NASADEM', badge: 'SRTM',
+        color: '#94a3b8',
+        portal: 'USGS EarthExplorer',
+        collection: 'srtm',
+        why: 'Dato de referencia histórica (año 2000). Útil para compatibilidad con trabajos previos o análisis de cambio topográfico.',
+        key_bands: ['DSM'],
+        all_bands: ['DSM'],
+      }
+    ],
+    warning: '⚠ Los productos ALOS PALSAR RTC a 12.5 m NO son DEMs utilizables para análisis topográfico. El pixel de 12.5 m es interpolado desde 30 m, y el archivo DEM incluido en el paquete tiene valores de elevación alterados por corrección geoidal. Para DEM libre de mayor resolución no existe fuente global abierta por debajo de 30 m (TanDEM-X 12 m existe pero no es gratuito).'
+  },
+  {
+    id: 'temporal',
+    icon: '📅',
+    name: 'Serie temporal / cambio',
+    desc: 'Cambios multianual, degradación, recuperación',
+    color: '#e879f9',
+    sensors: [
+      {
+        id: 'ls', name: 'HLS L30 (Landsat 8/9)', badge: 'LS-L2',
+        color: '#f59e0b',
+        portal: 'USGS EarthExplorer',
+        collection: 'landsat',
+        why: 'Archivo desde 1972 con consistencia radiométrica. Único sensor libre con más de 50 años de registro continuo. L2 incluye corrección atmosférica y de superficie.',
+        key_bands: ['B4','B5'],
+        all_bands: ['B2','B3','B4','B5','B6','B7'],
+      },
+      {
+        id: 's2l2a', name: 'Sentinel-2 L2A', badge: 'S2-L2A',
+        color: '#5ee3c0',
+        portal: 'CDSE',
+        collection: 'sentinel-2-l2a',
+        why: 'Desde 2015. Mayor resolución (10 m) y revisita (5 días) que Landsat. Para series cortas es la mejor opción.',
+        key_bands: ['B04','B08'],
+        all_bands: ['B02','B03','B04','B08','B11','B12'],
+      }
+    ],
+    warning: null
+  }
+];
+
+const COLLECTIONS = {
+  'sentinel-2-l2a': { name: 'Sentinel-2 L2A', res: '10–60 m', portal: 'CDSE', color: '#5ee3c0', type: 'optical' },
+  'sentinel-1-grd': { name: 'Sentinel-1 GRD', res: '10–40 m', portal: 'CDSE', color: '#818cf8', type: 'sar'     },
+  'landsat':        { name: 'HLS L30 (Landsat 8/9)', res: '30 m',    portal: 'NASA Earthdata', color: '#f59e0b', type: 'optical' },
+  'dem':            { name: 'COP-DEM GLO-30', res: '30 m',    portal: 'CDSE', color: '#f0c040', type: 'dem'     },
+  'palsar':         { name: 'ALOS PALSAR',    res: '12.5 m',  portal: 'ASF Vertex', color: '#fb923c', type: 'sar'     },
+};
+
+// Construye URL de ASF Vertex con polygon WKT desde bbox
+function buildASFUrl(bbox, dataset) {
+  if (!bbox) return `https://search.asf.alaska.edu/#/?dataset=${dataset}`;
+  const [w, s, e, n] = bbox;
+  // WKT polygon cerrado
+  const poly = `POLYGON((${w} ${s},${e} ${s},${e} ${n},${w} ${n},${w} ${s}))`;
+  const cx = ((w + e) / 2).toFixed(3);
+  const cy = ((s + n) / 2).toFixed(3);
+  return `https://search.asf.alaska.edu/#/?zoom=7&center=${cx},${cy}&polygon=${encodeURIComponent(poly)}&dataset=${dataset}`;
+}
+
+const DEM_OPTIONS = [
+  { id: 'copdem30', name: 'GLO-30',  res: '30 m', note: 'TanDEM-X · Recomendado' },
+  { id: 'copdem90', name: 'GLO-90',  res: '90 m', note: 'TanDEM-X · Cobertura global' },
+  { id: 'srtm',     name: 'SRTM',    res: '30 m', note: 'USGS · Dato año 2000' },
+  { id: 'nasadem',  name: 'NASADEM', res: '30 m', note: 'NASA · SRTM mejorado' },
+  { id: 'aw3d30',   name: 'AW3D30',  res: '30 m', note: 'JAXA · Bueno en bosques' },
+];
+
+const S2_BANDS = [
+  { band:'B01', nm:'443',  res:'60m',  color:'#6366f1', name:'Aerosol costero',  use:'Corrección atmosférica, agua costera profunda' },
+  { band:'B02', nm:'490',  res:'10m',  color:'#3b82f6', name:'Azul',             use:'Color verdadero, turbidez del agua, suelos' },
+  { band:'B03', nm:'560',  res:'10m',  color:'#22c55e', name:'Verde',            use:'Color verdadero, vegetación vigorosa, MNDWI' },
+  { band:'B04', nm:'665',  res:'10m',  color:'#ef4444', name:'Rojo',             use:'Color verdadero, clorofila, NDVI' },
+  { band:'B05', nm:'705',  res:'20m',  color:'#f97316', name:'Red Edge 1',       use:'Estrés vegetal temprano, índice de clorofila' },
+  { band:'B06', nm:'740',  res:'20m',  color:'#fb923c', name:'Red Edge 2',       use:'Contenido de clorofila foliar' },
+  { band:'B07', nm:'783',  res:'20m',  color:'#fbbf24', name:'Red Edge 3',       use:'Índices de vegetación avanzados, LAI' },
+  { band:'B08', nm:'842',  res:'10m',  color:'#a16207', name:'NIR',              use:'Biomasa, NDVI, separación vegetación / suelo' },
+  { band:'B08A',nm:'865',  res:'20m',  color:'#92400e', name:'NIR estrecho',     use:'Estructura del dosel, LAI preciso' },
+  { band:'B09', nm:'945',  res:'60m',  color:'#94a3b8', name:'Vapor de agua',    use:'Corrección atmosférica de vapor' },
+  { band:'B10', nm:'1375', res:'60m',  color:'#cbd5e1', name:'Cirrus',           use:'Detección de nubes delgadas tipo cirrus' },
+  { band:'B11', nm:'1610', res:'20m',  color:'#f43f5e', name:'SWIR 1',           use:'Humedad del suelo, nieve vs. nubes, minerales' },
+  { band:'B12', nm:'2190', res:'20m',  color:'#be123c', name:'SWIR 2',           use:'Arcillas, estrés hídrico, geología, NBDI' },
+];
+
+const LS_BANDS = [
+  { band:'B1',  nm:'443',       res:'30m',   color:'#6366f1', name:'Aerosol costero', use:'Agua costera, corrección atmosférica' },
+  { band:'B2',  nm:'482',       res:'30m',   color:'#3b82f6', name:'Azul',            use:'Color verdadero ≈ S2/B02' },
+  { band:'B3',  nm:'562',       res:'30m',   color:'#22c55e', name:'Verde',           use:'Color verdadero ≈ S2/B03' },
+  { band:'B4',  nm:'655',       res:'30m',   color:'#ef4444', name:'Rojo',            use:'NDVI, clasificación ≈ S2/B04' },
+  { band:'B5',  nm:'865',       res:'30m',   color:'#a16207', name:'NIR',             use:'Vegetación, agua ≈ S2/B08' },
+  { band:'B6',  nm:'1609',      res:'30m',   color:'#f43f5e', name:'SWIR 1',          use:'Humedad del suelo, geología ≈ S2/B11' },
+  { band:'B7',  nm:'2201',      res:'30m',   color:'#be123c', name:'SWIR 2',          use:'Minerales arcillosos ≈ S2/B12' },
+  { band:'B8',  nm:'590',       res:'15m',   color:'#f59e0b', name:'Pancromático',    use:'Fusión de imágenes (pansharpening) — solo Landsat 8/9' },
+  { band:'B10', nm:'10.9 µm',   res:'100m',  color:'#ef4444', name:'Térmico TIRS 1',  use:'Temperatura superficial de la Tierra (LST)' },
+  { band:'B11', nm:'12.0 µm',   res:'100m',  color:'#be123c', name:'Térmico TIRS 2',  use:'Temperatura superficial, corrección emisividad' },
+];
+
+const INDICES_DATA = [
+  {
+    category: 'Vegetación',
+    color: '#22c55e',
+    indices: [
+      {
+        name: 'NDVI',
+        fullName: 'Normalized Difference Vegetation Index',
+        formula: '(B08 − B04) / (B08 + B04)',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '< 0',        label: 'Agua / suelo desnudo' },
+          { val: '0 - 0.3',    label: 'Vegetación escasa' },
+          { val: '0.3 - 0.6',  label: 'Vegetación moderada' },
+          { val: '> 0.6',      label: 'Vegetación densa' },
+        ],
+        uses: ['Salud y densidad de cultivos', 'Biomasa relativa', 'Detección de estrés hídrico'],
+      },
+      {
+        name: 'EVI',
+        fullName: 'Enhanced Vegetation Index',
+        formula: '2.5 × (B08-B04) / (B08 + 6×B04 - 7.5×B02 + 1)',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '< 0.2',      label: 'Suelo / vegetación muy escasa' },
+          { val: '0.2 - 0.5',  label: 'Vegetación moderada' },
+          { val: '> 0.5',      label: 'Vegetación densa / dosel cerrado' },
+        ],
+        uses: ['Dosel denso (no satura como NDVI)', 'Corrección atmosférica integrada', 'Monitoreo de selva tropical'],
+      },
+      {
+        name: 'SAVI',
+        fullName: 'Soil-Adjusted Vegetation Index',
+        formula: '(B08 − B04) / (B08 + B04 + 0.5) × 1.5',
+        sensors: ['S2', 'Landsat'],
+        ranges: null,
+        uses: ['Zonas áridas con suelo desnudo expuesto', 'Corrección del efecto de brillo del suelo', 'Vegetación dispersa'],
+      },
+      {
+        name: 'NDRE',
+        fullName: 'Normalized Difference Red Edge',
+        formula: '(B08A − B05) / (B08A + B05)',
+        sensors: ['S2'],
+        ranges: null,
+        uses: ['Contenido de clorofila (más preciso que NDVI)', 'Estrés nutricional en cultivos', 'Exclusivo Sentinel-2 (Red Edge)'],
+      },
+    ],
+  },
+  {
+    category: 'Agua',
+    color: '#3b82f6',
+    indices: [
+      {
+        name: 'NDWI',
+        fullName: 'Normalized Difference Water Index (McFeeters)',
+        formula: '(B03 − B08) / (B03 + B08)',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '> 0',  label: 'Agua superficial' },
+          { val: '< 0',  label: 'Vegetación / suelo / urbano' },
+        ],
+        uses: ['Delimitación de cuerpos de agua', 'Extensión de inundaciones', 'Cambios temporales en lagos y embalses'],
+      },
+      {
+        name: 'MNDWI',
+        fullName: 'Modified Normalized Difference Water Index (Xu)',
+        formula: '(B03 − B11) / (B03 + B11)',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '> 0',  label: 'Agua superficial' },
+          { val: '< 0',  label: 'Vegetación / suelo / urbano' },
+        ],
+        uses: ['Más preciso que NDWI en zonas urbanas', 'Elimina confusión agua-edificios', 'Monitoreo de humedales'],
+      },
+    ],
+  },
+  {
+    category: 'Suelo / Geología',
+    color: '#f97316',
+    indices: [
+      {
+        name: 'BSI',
+        fullName: 'Bare Soil Index',
+        formula: '((B11 + B04) − (B08 + B02)) / ((B11 + B04) + (B08 + B02))',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '> 0',  label: 'Suelo desnudo' },
+          { val: '< 0',  label: 'Vegetación presente' },
+        ],
+        uses: ['Mapeo de suelo expuesto', 'Erosión y degradación de suelos', 'Preparación de terrenos agrícolas'],
+      },
+      {
+        name: 'Clay Index',
+        fullName: 'Índice de minerales arcillosos',
+        formula: 'B11 / B12',
+        sensors: ['S2'],
+        ranges: null,
+        uses: ['Detección de arcillas y caolinitas', 'Cartografía litológica', 'Alteración hidrotermal'],
+      },
+      {
+        name: 'Iron Oxide',
+        fullName: 'Índice de óxidos de hierro',
+        formula: 'B04 / B02',
+        sensors: ['S2', 'Landsat'],
+        ranges: null,
+        uses: ['Suelos con lateritas / óxidos de hierro', 'Rocas ferruginosas', 'Discriminación litológica'],
+      },
+    ],
+  },
+  {
+    category: 'Urbano / Quemas',
+    color: '#a78bfa',
+    indices: [
+      {
+        name: 'NDBI',
+        fullName: 'Normalized Difference Built-up Index',
+        formula: '(B11 − B08) / (B11 + B08)',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '> 0',  label: 'Zona construida / impermeable' },
+          { val: '< 0',  label: 'Vegetación / agua' },
+        ],
+        uses: ['Expansión urbana', 'Mapeo de superficies impermeables', 'Islas de calor (complemento TIRS)'],
+      },
+      {
+        name: 'NBR',
+        fullName: 'Normalized Burn Ratio',
+        formula: '(B08 − B12) / (B08 + B12)',
+        sensors: ['S2', 'Landsat'],
+        ranges: [
+          { val: '> 0.1',      label: 'Vegetación sana' },
+          { val: '-0.1 - 0.1', label: 'Suelo desnudo' },
+          { val: '< -0.1',     label: 'Área quemada reciente' },
+        ],
+        uses: ['Severidad de incendios forestales', 'Cicatrices de quema', 'Recuperación post-incendio (dNBR = pre - post)'],
+      },
+    ],
+  },
+];
+
+const POL_DATA = [
+  { code:'VV', color:'#5ee3c0', desc:'Emisión vertical · Recepción vertical. Sensible a la rugosidad superficial y el contenido dieléctrico (humedad). Respuesta fuerte sobre superficies lisas y estructuras verticales.', uses:['Suelos desnudos y húmedos','Inundaciones (agua libre = señal baja)','Zonas urbanas con fachadas verticales','Campos agrícolas con surcos verticales'] },
+  { code:'VH', color:'#818cf8', desc:'Emisión vertical · Recepción horizontal (cross-polarización). Sensible al volumen de la escena — capas de vegetación y estructuras complejas que cambian la polarización.', uses:['Biomasa y cobertura forestal','Cultivos con estructura tridimensional','Detección de cambios en cobertura vegetal','Discriminación vegetación / sin vegetación'] },
+  { code:'HH', color:'#f59e0b', desc:'Emisión horizontal · Recepción horizontal. Similar a VV pero con diferente sensibilidad angular. Estándar histórico en sensores L-band como ALOS PALSAR.', uses:['Hielo marino y superficies acuáticas','Inundaciones bajo vegetación (L-band)','Clasificación de zonas áridas','ALOS PALSAR modo FBS (single-pol)'] },
+  { code:'HV', color:'#fb923c', desc:'Emisión horizontal · Recepción vertical (cross-pol). Equivalente a VH. Usado en sistemas que emiten en H. Sensible al volumen de vegetación con señal L-band.', uses:['Biomasa forestal con ALOS PALSAR','Estructura del dosel bajo cobertura densa','Clasificación de tipos de bosque','ALOS PALSAR modo FBD (dual-pol con HH)'] },
+];
+
+const DEM_COMP_DATA = [
+  { name:'COP-DEM GLO-30', res:'30', unit:'m', note:'TanDEM-X (2011-2015). Mejor calidad vertical libre disponible. Cobertura global excepto zonas polares.', portal:'CDSE', best:true },
+  { name:'COP-DEM GLO-90', res:'90', unit:'m', note:'Misma fuente que GLO-30 a menor resolución. Útil para análisis regionales o de gran escala.', portal:'CDSE', best:false },
+  { name:'SRTM GL1',       res:'30', unit:'m', note:'Misión Shuttle 2000. Dato histórico de referencia. Vacíos en zonas de relieve complejo.', portal:'EarthExplorer', best:false },
+  { name:'NASADEM',        res:'30', unit:'m', note:'SRTM reprocessado (2020). Reduce vacíos con datos auxiliares. Supera al SRTM original.', portal:'Earthdata NASA', best:false },
+  { name:'AW3D30',         res:'30', unit:'m', note:'ALOS PRISM estereoscópico. Bueno en zonas de bosque denso donde el radar tiene problemas de penetración.', portal:'JAXA portal', best:false },
+  { name:'ALOS PALSAR RTC 12.5m', res:'12.5', unit:'m', note:'⚠ NO es un DEM. Es una imagen SAR de amplitud. El pixel de 12.5 m es interpolado. El DEM auxiliar incluido tiene valores alterados — no usar para análisis topográfico.', portal:'ASF Vertex', best:false, warn:true },
+
+];
+
+const FAQ_DATA = [
+  { q:'¿Qué diferencia hay entre L1C y L2A en Sentinel-2?', a:'<strong>L1C</strong> contiene reflectancia en el tope de la atmósfera (TOA) — incluye la señal atmosférica sin corregir. <strong>L2A</strong> es reflectancia de superficie (BOA) con corrección atmosférica aplicada mediante el procesador Sen2Cor. Para cualquier análisis cuantitativo (índices espectrales, clasificación, series temporales) se debe usar <strong>L2A</strong>. L1C solo tiene sentido si se planea aplicar una corrección atmosférica propia con otro algoritmo.' },
+  { q:'¿Por qué mis colegas usan SRTM si COP-DEM es mejor?', a:'Compatibilidad histórica: la mayoría de los estudios publicados antes de 2019 usaron SRTM porque COP-DEM no existía. Para nuevos proyectos sin restricción de compatibilidad, <code>COP-DEM GLO-30</code> es la elección correcta. SRTM sigue siendo válido cuando se necesita comparar con resultados previos o cuando se trabaja con datos anteriores a 2019.' },
+  { q:'¿Puedo usar ALOS PALSAR para generar un DEM de 12.5 m?', a:'No directamente. Los productos RTC de ASF son imágenes de amplitud SAR, no interferogramas. Para generar un DEM desde SAR se necesitan dos imágenes <code>L1.1 (SLC)</code> adquiridas en órbitas diferentes y software de procesamiento InSAR (SNAP, GAMMA). ALOS PALSAR además tiene un ciclo de repetición de 46 días, lo que introduce decorrelación temporal y limita la calidad del DEM resultante.' },
+  { q:'¿Cuándo usar Sentinel-1 y cuándo ALOS PALSAR?', a:'<strong>Sentinel-1</strong>: análisis actuales y futuros (datos desde 2014 hasta el presente), revisita rápida (6 días), cobertura global sistemática. Banda C — bueno para superficie y dosel superior. <strong>ALOS PALSAR</strong>: análisis históricos (2006-2011), penetración bajo dosel denso (banda L a 23 cm), mejor para estimación de biomasa forestal en bosque tropical. No son intercambiables: diferentes longitudes de onda producen respuestas diferentes sobre los mismos objetos.' },
+  { q:'¿Qué formato descargo y cómo lo abro en QGIS / ArcGIS Pro?', a:'Sentinel-2 y Landsat se descargan como archivos <code>.zip</code> que contienen bandas individuales en formato <code>.jp2</code> (JPEG2000) o <code>.TIF</code> georreferenciadas. En QGIS: <em>Capa → Añadir capa raster</em> o arrastrar el archivo. En ArcGIS Pro: <em>Insert → Add Data</em>. COP-DEM viene como <code>GeoTIFF (.tif)</code> directamente utilizable. Se recomienda cargar bandas individuales y crear composiciones mediante la herramienta de composición de colores o Virtual Raster (QGIS) / Mosaic to New Raster (ArcGIS).' },
+  { q:'¿Qué es un producto "Online" vs "Offline" en CDSE?', a:'En el catálogo de CDSE los productos <strong>Online</strong> están almacenados en disco y se descargan inmediatamente. Los productos <strong>Offline</strong> (o DAD — Deferred Available Data) están en cinta de archivo y requieren ser "pedidos" primero: el sistema los recupera del archivo y los pone disponibles en línea en horas. En la búsqueda STAC, el campo <code>"online": true</code> indica disponibilidad inmediata.' },
+];
+
+// ══════════════════════════════════════════════════
+//  ESTADO
+// ══════════════════════════════════════════════════
+let state = {
+  selectedAnalysis: null,
+  selectedCollection: 'sentinel-2-l2a',
+  selectedDem: 'copdem30',
+  bbox: null,
+  results: [],
+  resultNames: [],
+  resultDates: [],
+  activeResult: null,
+  recommendedCollections: null,
+};
+
+// ══════════════════════════════════════════════════
+//  NAVEGACIÓN
+// ══════════════════════════════════════════════════
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (!pg) return;
+  pg.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'orientacion') {
+    clearResults();
+  }
+  if (id === 'busqueda') {
+    if (!window._mapInit) initMap();
+    renderCollections();
+  }
+  if (id === 'acerca') {
+    loadVersionHistory();
+  }
+}
+
+function goSearch() {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-btn')[1].classList.add('active');
+
+  // Guardar colecciones recomendadas para filtrar el selector
+  if (state.selectedAnalysis) {
+    const at = ANALYSIS_TYPES.find(a => a.id === state.selectedAnalysis);
+    if (at) {
+      // Colecciones únicas recomendadas para este análisis
+      state.recommendedCollections = [...new Set(at.sensors.map(s => s.collection))];
+      // Pre-seleccionar la primera
+      const first = state.recommendedCollections[0];
+      if (first && COLLECTIONS[first]) state.selectedCollection = first;
+    }
+  } else {
+    state.recommendedCollections = null; // sin filtro
+  }
+
+  showPage('busqueda');
+}
+
+// ══════════════════════════════════════════════════
+//  RENDER ORIENTACIÓN
+// ══════════════════════════════════════════════════
+function renderAnalysisGrid() {
+  const grid = document.getElementById('analysis-grid');
+  grid.innerHTML = ANALYSIS_TYPES.map(a => `
+    <div class="analysis-card" data-id="${a.id}"
+         style="--card-color:${a.color}"
+         onclick="selectAnalysis('${a.id}')">
+      <div class="ac-icon">${a.icon}</div>
+      <div class="ac-name">${a.name}</div>
+      <div class="ac-desc">${a.desc}</div>
+    </div>
+  `).join('');
+}
+
+function selectAnalysis(id) {
+  state.selectedAnalysis = id;
+  document.querySelectorAll('.analysis-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
+  });
+  const at = ANALYSIS_TYPES.find(a => a.id === id);
+  showRecommendation(at);
+}
+
+function showRecommendation(at) {
+  const panel = document.getElementById('rec-panel');
+  document.getElementById('rec-icon').textContent = at.icon;
+  document.getElementById('rec-title').textContent = at.name;
+  document.getElementById('rec-subtitle').textContent = 'Sensores y configuración recomendados para este análisis';
+
+  const grid = document.getElementById('rec-grid');
+  grid.innerHTML = at.sensors.map(s => `
+    <div class="sensor-rec" style="--sensor-color:${s.color}">
+      <div class="sr-header">
+        <span class="sr-badge">${s.badge}</span>
+        <span class="sr-name">${s.name}</span>
+      </div>
+      <div class="sr-why">${s.why}</div>
+      <div style="font-family:var(--mono);font-size:15px;color:var(--muted);margin-bottom:6px;letter-spacing:.5px;">
+        ${s.type === 'sar' ? 'POLARIZACIONES' : s.id === 'copdem' || s.id === 'srtm' ? 'PRODUCTO' : 'BANDAS CLAVE'}
+      </div>
+      <div class="sr-bands">
+        ${s.all_bands.map(b => `<span class="band-tag ${s.key_bands.includes(b) ? 'key' : ''}">${b}</span>`).join('')}
+      </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:15px;color:var(--dim);">
+        Portal: <span style="color:var(--muted)">${s.portal}</span>
+      </div>
+    </div>
+  `).join('');
+
+  const warn = document.getElementById('rec-warning');
+  if (at.warning) {
+    warn.textContent = at.warning;
+    warn.classList.add('show');
+  } else {
+    warn.classList.remove('show');
+  }
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ══════════════════════════════════════════════════
+//  RENDER BÚSQUEDA
+// ══════════════════════════════════════════════════
+function renderCollections() {
+  const grid = document.getElementById('coll-grid');
+  const rec  = state.recommendedCollections; // null o array de ids
+
+  // Colecciones a mostrar
+  const entries = Object.entries(COLLECTIONS).filter(([id]) =>
+    !rec || rec.includes(id)
+  );
+
+  const cards = entries.map(([id, c]) => `
+    <div class="coll-card ${state.selectedCollection === id ? 'on' : ''}"
+         data-id="${id}"
+         style="--coll-color:${c.color}"
+         onclick="selectCollection('${id}')">
+      <div class="cc-name">${c.name}</div>
+      <div class="cc-res">${c.res}</div>
+      <div class="cc-portal">${c.portal}</div>
+    </div>
+  `).join('');
+
+  // Si hay filtro activo, mostrar nota + enlace "ver todas"
+  const filterNote = rec
+    ? `<div style="grid-column:1/-1;font-family:var(--mono);font-size:15px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--accent)">✓ Recomendadas para tu análisis</span>
+        <button onclick="clearCollectionFilter()" style="background:none;border:none;color:var(--accent2);font-family:var(--mono);font-size:15px;cursor:pointer;text-decoration:underline;">ver todas</button>
+       </div>`
+    : '';
+
+  grid.innerHTML = cards + filterNote;
+  updatePanelVisibility();
+}
+
+function clearCollectionFilter() {
+  state.recommendedCollections = null;
+  renderCollections();
+}
+
+function selectCollection(id) {
+  state.selectedCollection = id;
+  document.querySelectorAll('.coll-card').forEach(c => {
+    c.classList.toggle('on', c.dataset.id === id);
+  });
+  updatePanelVisibility();
+  clearResults();
+}
+
+function renderDemOptions() {
+  const grid = document.getElementById('dem-grid');
+  grid.innerHTML = DEM_OPTIONS.map(d => `
+    <div class="dem-btn ${state.selectedDem === d.id ? 'on' : ''}"
+         onclick="selectDem('${d.id}', '${d.url}')"
+         title="${d.note}">
+      <div class="dn">${d.name}</div>
+      <div class="dr">${d.res}</div>
+    </div>
+  `).join('');
+}
+
+function selectDem(id, url) {
+  state.selectedDem = id;
+  document.querySelectorAll('.dem-btn').forEach(b => b.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+  const d = DEM_OPTIONS.find(x => x.id === id);
+  document.getElementById('dem-note').textContent = d ? d.note : '';
+  // Para DEM apuntar directamente al portal externo
+  const asfBtn  = document.getElementById('btn-asf');
+  const browserBtn = document.getElementById('btn-browser');
+  if (id === 'aw3d30') {
+    document.getElementById('dem-note').innerHTML = 'Descarga directa desde el portal de JAXA. <a href="https://www.eorc.jaxa.jp/ALOS/en/dataset/aw3d30/aw3d30_e.htm" target="_blank" style="color:var(--accent2)">Ir al portal →</a>';
+  }
+}
+
+function updatePanelVisibility() {
+  const col = state.selectedCollection;
+  const isDem = col === 'dem';
+  const isSar = col === 'sentinel-1-grd' || col === 'palsar';
+  const isPalsar = col === 'palsar';
+  const isLandsat = col === 'landsat';
+
+  document.getElementById('dem-section').style.display   = isDem ? 'block' : 'none';
+  document.getElementById('date-section').style.display  = isDem ? 'none' : 'block';
+  document.getElementById('cloud-section').style.display = (isDem || isSar || isLandsat) ? 'none' : 'block';
+  document.getElementById('btn-asf').style.display       = isPalsar ? 'flex' : 'none';
+  document.getElementById('btn-browser').style.display   = 'none'; // se muestra tras búsqueda
+
+  if (isDem) renderDemOptions();
+}
+
+// ══════════════════════════════════════════════════
+//  MAPA
+// ══════════════════════════════════════════════════
+let map, drawnItems, drawControl, footprintLayers = [];
+
+function initMap() {
+  window._mapInit = true;
+  map = L.map('map', { zoomControl: true }).setView([4.5, -74.0], 6);
+
+  // Basemap satelital gratuito sin API key (Esri World Imagery). Ojo: Esri usa orden {z}/{y}/{x}
+  const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Imagery © Esri, Maxar, Earthstar Geographics, GIS User Community', maxZoom: 19, maxNativeZoom: 18
+  }).addTo(map);
+  const etiquetas = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Labels © Esri', maxZoom: 19, maxNativeZoom: 18
+  }).addTo(map);
+  L.control.layers({ 'Satélite': satelite }, { 'Límites y lugares': etiquetas }, { position: 'topright' }).addTo(map);
+
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  drawControl = new L.Control.Draw({
+    draw: {
+      rectangle: { shapeOptions: { color: '#5ee3c0', weight: 2, fillOpacity: .08 } },
+      polygon: false, circle: false, marker: false,
+      circlemarker: false, polyline: false,
+    },
+    edit: { featureGroup: drawnItems }
+  });
+  map.addControl(drawControl);
+
+  map.on(L.Draw.Event.CREATED, e => {
+    drawnItems.clearLayers();
+    drawnItems.addLayer(e.layer);
+    const b = e.layer.getBounds();
+    state.bbox = [
+      +b.getWest().toFixed(5), +b.getSouth().toFixed(5),
+      +b.getEast().toFixed(5), +b.getNorth().toFixed(5)
+    ];
+    updateBboxDisplay();
+    document.getElementById('map-instr').style.display = 'none';
+  });
+  map.on(L.Draw.Event.DELETED, () => { state.bbox = null; updateBboxDisplay(); });
+}
+
+function clearBbox() {
+  if (!drawnItems) return;
+  drawnItems.clearLayers();
+  state.bbox = null;
+  updateBboxDisplay();
+  document.getElementById('map-instr').style.display = 'block';
+}
+
+function updateBboxDisplay() {
+  const el = document.getElementById('bbox-disp');
+  if (!state.bbox) {
+    el.innerHTML = '— Dibuja un rectángulo en el mapa —';
+  } else {
+    const [w,s,e,n] = state.bbox;
+    el.innerHTML = `<span class="bv">W</span> ${w}°  <span class="bv">E</span> ${e}°<br><span class="bv">S</span> ${s}°  <span class="bv">N</span> ${n}°`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  BÚSQUEDA STAC
+// ══════════════════════════════════════════════════
+async function doSearch() {
+  if (!state.bbox) { slog('Dibuja primero el área en el mapa.', 'err'); return; }
+
+  const col = state.selectedCollection;
+
+  // DEM → mostrar instrucciones específicas con enlace al browser centrado en AOI
+  if (col === 'dem') {
+    const d = DEM_OPTIONS.find(x => x.id === state.selectedDem) || DEM_OPTIONS[0];
+    showDEMInstructions(d);
+    return;
+  }
+
+  // PALSAR → ASF Search API (CORS abierto, sin autenticación para búsqueda)
+  if (col === 'palsar') {
+    const ds = document.getElementById('d-start').value;
+    const de = document.getElementById('d-end').value;
+    if (!ds || !de) { slog('Ingresa el rango de fechas.', 'err'); return; }
+    const [w,s,e,n] = state.bbox;
+    // WKT polygon cerrado desde el bbox
+    const wkt = `POLYGON((${w} ${s},${e} ${s},${e} ${n},${w} ${n},${w} ${s}))`;
+    setSpinner(true);
+    slog('Consultando ASF Search API (ALOS PALSAR RTC)…', 'inf');
+    clearResults();
+    try {
+      const params = new URLSearchParams({
+        platform:        'ALOS',
+        processingLevel: 'RTC_HI_RES',
+        intersectsWith:  wkt,
+        start:           `${ds}T00:00:00UTC`,
+        end:             `${de}T23:59:59UTC`,
+        maxResults:      20,
+        output:          'geojson',
+      });
+      const resp = await fetch(
+        `https://api.daac.asf.alaska.edu/services/search/param?${params}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const items = data.features || [];
+      slog(`${items.length} escenas PALSAR encontradas.`, items.length ? 'ok' : 'inf');
+      renderResults(items, 'palsar');
+      document.getElementById('btn-asf').style.display = 'flex';
+    } catch(e) {
+      slog(`Error ASF API: ${e.message}. Abriendo Vertex como alternativa…`, 'err');
+      openASF();
+    } finally {
+      setSpinner(false);
+    }
+    return;
+  }
+
+  // Landsat → STAC NASA Earthdata (CMR STAC - tiene CORS)
+  if (col === 'landsat') {
+    const ds = document.getElementById('d-start').value;
+    const de = document.getElementById('d-end').value;
+    if (!ds || !de) { slog('Ingresa el rango de fechas.', 'err'); return; }
+    const cloud = parseInt(document.getElementById('cloud-range').value);
+    const [w,s,e,n] = state.bbox;
+    setSpinner(true);
+    slog('Consultando STAC NASA Earthdata (HLS L30 — Landsat 8/9)…', 'inf');
+    clearResults();
+    try {
+      // CMR STAC — si tiene CORS falla en browser y cae al catch
+      // que abre Earthdata Search con bbox y fechas preconfigurados
+      const params = new URLSearchParams({
+        bbox: `${w},${s},${e},${n}`,
+        datetime: `${ds}T00:00:00Z/${de}T23:59:59Z`,
+        limit: 20,
+      });
+      const url = `https://cmr.earthdata.nasa.gov/stac/LPCLOUD/collections/HLSL30.v2.0/items?${params}`;
+      const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const items = (data.features || data.items || []);
+      slog(`${items.length} escenas Landsat C2 L2 encontradas.`, items.length ? 'ok' : 'inf');
+      renderResults(items, 'landsat');
+      // Mostrar también botón a EarthExplorer como descarga
+      document.getElementById('btn-browser').style.display = 'none';
+      document.getElementById('btn-asf').style.display = 'none';
+      // Botón especial EarthExplorer
+      let eeBtn = document.getElementById('btn-ee');
+      if (!eeBtn) {
+        eeBtn = document.createElement('button');
+        eeBtn.id = 'btn-ee';
+        eeBtn.className = 'sp-btn sp-btn-ext';
+        eeBtn.style.marginTop = '6px';
+        eeBtn.textContent = '↗ Buscar en NASA Earthdata Search';
+        eeBtn.onclick = () => {
+          // NASA Earthdata Search acepta bbox, fechas y concept_id por URL
+          // C2021957295-LPCLOUD = Landsat 8-9 OLI/TIRS Collection 2 Level-2
+          const [w,s,e,n] = state.bbox || [-180,-90,180,90];
+          const ds = document.getElementById('d-start').value || '';
+          const de = document.getElementById('d-end').value   || '';
+          // C2021957657-LPCLOUD = HLS L30 Landsat OLI Surface Reflectance Daily Global 30m v2.0
+          // Landsat 8/9 armonizado con Sentinel-2, corrección atmosférica, alojado en Earthdata Cloud
+          let url = `https://search.earthdata.nasa.gov/search/granules?p=C2021957657-LPCLOUD&pg[0][v]=f&pg[0][gsk]=-start_date&sb[0]=${w}%2C${s}%2C${e}%2C${n}`;
+          if (ds && de) url += `&qt=${ds}T00%3A00%3A00.000Z%2C${de}T23%3A59%3A59.999Z`;
+          window.open(url, '_blank');
+        };
+        document.getElementById('btn-search').parentNode.appendChild(eeBtn);
+      }
+      eeBtn.style.display = 'flex';
+    } catch(e) {
+      slog(`Error Landsat STAC: ${e.message}`, 'err');
+      slog('Abriendo NASA Earthdata Search…', 'inf');
+      const fbBbox = state.bbox || [-180,-90,180,90];
+      const ds2 = document.getElementById('d-start').value || '';
+      const de2 = document.getElementById('d-end').value   || '';
+      let fbUrl = `https://search.earthdata.nasa.gov/search/granules?p=C2021957657-LPCLOUD&pg[0][v]=f&pg[0][gsk]=-start_date&sb[0]=${fbBbox[0]}%2C${fbBbox[1]}%2C${fbBbox[2]}%2C${fbBbox[3]}`;
+      if (ds2 && de2) fbUrl += `&qt=${ds2}T00%3A00%3A00.000Z%2C${de2}T23%3A59%3A59.999Z`;
+      window.open(fbUrl, '_blank');
+    } finally {
+      setSpinner(false);
+    }
+    return;
+  }
+
+  // Sentinel-1 / Sentinel-2 → STAC CDSE
+  const stacCollection = col === 'sentinel-2-l2a' ? 'sentinel-2-l2a' : 'sentinel-1-grd';
+  const ds = document.getElementById('d-start').value;
+  const de = document.getElementById('d-end').value;
+  if (!ds || !de) { slog('Ingresa el rango de fechas.', 'err'); return; }
+
+  const cloud = parseInt(document.getElementById('cloud-range').value);
+  const [w,s,e,n] = state.bbox;
+
+  setSpinner(true);
+  slog('Consultando STAC CDSE…', 'inf');
+  clearResults();
+
+  const body = {
+    collections: [stacCollection],
+    bbox: [w, s, e, n],
+    datetime: `${ds}T00:00:00Z/${de}T23:59:59Z`,
+    limit: 20,
+  };
+  if (col === 'sentinel-2-l2a') {
+    body.filter = { op: '<', args: [{ property: 'eo:cloud_cover' }, cloud] };
+    body['filter-lang'] = 'cql2-json';
+  }
+
+  try {
+    const resp = await fetch('https://stac.dataspace.copernicus.eu/v1/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const items = data.features || [];
+    slog(`${items.length} escenas encontradas.`, items.length ? 'ok' : 'inf');
+    renderResults(items, stacCollection);
+    showBrowserButton();
+  } catch(e) {
+    slog(`Error: ${e.message}`, 'err');
+  } finally {
+    setSpinner(false);
+  }
+}
+
+function renderResults(items, collection) {
+  state.results = items;
+  const bar  = document.getElementById('results-bar');
+  const list = document.getElementById('results-list');
+  document.getElementById('rb-count').textContent = items.length;
+
+  // Limpiar footprints
+  footprintLayers.forEach(l => map.removeLayer(l));
+  footprintLayers = [];
+
+  if (items.length === 0) {
+    bar.style.display = 'block';
+    list.innerHTML = '<div style="padding:12px;font-family:var(--mono);font-size:17px;color:var(--muted);">Sin resultados para los filtros seleccionados. Amplía el rango de fechas o el límite de nubosidad.</div>';
+    return;
+  }
+
+  state.resultNames = items.map(item => item.properties?.granuleName || item.properties?.fileName || item.id || '');
+
+  bar.style.display = 'block';
+  list.innerHTML = items.map((item, i) => {
+    // Normalizar metadatos entre STAC (S2/S1/Landsat) y ASF GeoJSON (PALSAR)
+    const isPalsar = collection === 'palsar';
+    const cloudRaw = isPalsar
+      ? null  // PALSAR no reporta cobertura de nubes
+      : (item.properties?.['eo:cloud_cover'] ?? null);
+    const cloud = cloudRaw != null ? +parseFloat(cloudRaw).toFixed(1) : null;
+    const date  = isPalsar
+      ? (item.properties?.startTime || item.properties?.sceneDateString || '').split('T')[0]
+      : (item.properties?.datetime  || item.properties?.start_datetime  || '').split('T')[0];
+    const name  = isPalsar
+      ? (item.properties?.granuleName || item.properties?.fileName || item.id || 'Escena')
+      : (item.id || 'Escena');
+    const ccClass = cloud == null ? '' : cloud < 20 ? 'cloud-low' : cloud < 50 ? 'cloud-mid' : 'cloud-high';
+    const ccLabel = cloud != null ? `☁ ${cloud}%`
+                  : (collection === 'sentinel-1-grd' || isPalsar) ? 'SAR' : '—';
+    const size    = item.properties?.['file:size']
+                    ? (item.properties['file:size'] / 1e9).toFixed(2) + ' GB' : '';
+
+    // Footprint
+    if (item.geometry) {
+      const fp = L.geoJSON(item.geometry, {
+        style: { color: '#5ee3c0', weight: 1, fillOpacity: .04, opacity: .5 }
+      });
+      fp.on('click', () => activateResult(i));
+      fp.addTo(map);
+      footprintLayers.push(fp);
+    }
+
+    const browserUrl = buildBrowserUrl(item.id, collection, item);
+
+    // Thumbnail: Element84 usa assets.thumbnail o assets.rendered_preview
+
+
+    return `
+      <div class="result-card" id="rc-${i}" onclick="activateResult(${i})">
+        ${(item.assets?.QUICKLOOK?.href || item.assets?.thumbnail?.href)
+          ? `<img src="${item.assets?.QUICKLOOK?.href || item.assets?.thumbnail?.href}"
+               alt="preview"
+               style="width:72px;height:72px;object-fit:cover;flex-shrink:0;border-radius:4px;">`
+          : ''}
+        <div>
+          <div class="rc-name">${name.substring(0,50)}${name.length>50?'…':''}</div>
+          <div class="rc-meta">${date}${size ? ' · ' + size : ''}</div>
+          <div class="dl-actions" id="dl-${i}" style="display:none;flex-direction:column;gap:6px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${collection !== 'landsat' && collection !== 'palsar' ? `<a class="dl-btn dl-cdse" href="${browserUrl}" target="_blank">↗ Copernicus Browser</a>` : ''}
+              ${buildDirectLink(item, collection, i)}
+              <button class="dl-btn dl-ee" onclick="showGEEModal(${i})">🌐 Script GEE</button>
+            </div>
+            ${BROWSER_INSTRUCTIONS[collection] ? `
+            <div style="font-family:var(--mono);font-size:15px;color:var(--warn);line-height:1.7;padding:6px 8px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:4px;">
+              ⚠ ${BROWSER_INSTRUCTIONS[collection]}
+            </div>` : ''}
+          </div>
+        </div>
+        <span class="rc-cloud ${ccClass}">${ccLabel}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function activateResult(i) {
+  // Toggle usando IDs directos — evita desincronización de índices
+  const wasActive = state.activeResult === i;
+  const n = state.results.length;
+
+  for (let j = 0; j < n; j++) {
+    const card  = document.getElementById('rc-' + j);
+    const dlRow = document.getElementById('dl-' + j);
+    const isTarget = (j === i && !wasActive);
+    if (card)  card.classList.toggle('active-r', isTarget);
+    if (dlRow) {
+      dlRow.style.display = isTarget ? 'flex' : 'none';
+    } else if (isTarget) {
+      // dl-row no encontrado — buscar dentro de la tarjeta directamente
+      const fallback = card?.querySelector('.dl-actions');
+      if (fallback) fallback.style.display = 'flex';
+    }
+  }
+  state.activeResult = wasActive ? null : i;
+
+  // Highlight footprint
+  footprintLayers.forEach((l, j) => {
+    l.setStyle({ color: j === i && !wasActive ? '#fff' : '#5ee3c0', weight: j === i && !wasActive ? 2 : 1 });
+  });
+}
+
+// ── CONSTRUCCIÓN DE ENLACES DE ACCIÓN POR ESCENA ──────────────────────────────
+//
+// El Copernicus Browser (SPA) restaura su colección desde localStorage
+// e ignora parámetros URL como datasetId. No hay forma de preconfigurar
+// la colección ni la escena específica desde una URL externa.
+//
+// Arquitectura de botones de acción por escena:
+//
+//  [↗ Buscar en Browser]  → Abre el browser centrado en el AOI + fecha.
+//                           El estudiante usa la pestaña BUSCAR y pega el nombre.
+//  [⬇ Descargar (.zip)]   → Enlace directo al zip del producto via OData CDSE.
+//                           Requiere sesión activa (cuenta CDSE gratuita).
+//  [📋 Copiar nombre]      → Copia el nombre exacto del producto al portapapeles.
+//                           Permite pegarlo en el browser o en otros flujos.
+//
+// Esta arquitectura es robusta porque no depende de parámetros URL del browser.
+// ──────────────────────────────────────────────────────────────────────────────
+
+function buildBrowserUrl(id, collection, item) {
+  const date = (item.properties?.datetime || item.properties?.start_datetime || '').split('T')[0];
+  const [lng, lat] = getBboxCenter();
+  // Solo coordenadas + fecha — sin datasetId (el browser lo ignora si hay sesión)
+  let url = `https://dataspace.copernicus.eu/browser/?zoom=10&lat=${lat}&lng=${lng}`;
+  if (date) url += `&fromTime=${date}T00:00:00.000Z&toTime=${date}T23:59:59.999Z&dateMode=SINGLE`;
+  return url;
+}
+
+// Busca el producto en OData por nombre y abre el enlace de descarga directa
+// La descarga real requiere sesión activa CDSE (redirige al login si no hay sesión)
+async function openCDSEDownload(productName, btn) {
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Buscando…';
+  btn.disabled = true;
+
+  // Normalizar: el STAC devuelve IDs sin extensión .SAFE
+  // El OData siempre necesita el nombre con .SAFE al final
+  const baseName = productName.replace(/\.SAFE$/, ''); // quitar .SAFE si ya lo trae
+  slog(`Buscando: ${baseName}.SAFE`, 'inf');
+
+  try {
+    // Construir variantes a intentar:
+    // 1. nombre tal como viene + .SAFE
+    // 2. si tiene _COG, también probar sin _COG (y viceversa)
+    const namesToTry = [`${baseName}.SAFE`];
+    if (baseName.endsWith('_COG')) {
+      // tiene _COG → también probar sin _COG
+      namesToTry.push(`${baseName.slice(0, -4)}.SAFE`);
+    } else {
+      // no tiene _COG → también probar con _COG
+      namesToTry.push(`${baseName}_COG.SAFE`);
+    }
+
+    let products = [];
+    for (const name of namesToTry) {
+      const tryUrl = `https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Name eq '${name}'&$select=Id,Name,Online,ContentLength&$top=1`;
+      const resp = await fetch(tryUrl, { headers: { Accept: 'application/json' } });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data.value?.length > 0) { products = data.value; break; }
+    }
+
+    if (products.length === 0) {
+      slog(`Sin resultados para: ${productName}`, 'err');
+      slog('Intenta buscar manualmente en dataspace.copernicus.eu', 'inf');
+      btn.innerHTML = '✗ No encontrado';
+      setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
+      return;
+    }
+
+    const prod = products[0];
+    const sizeMB  = prod.ContentLength ? (prod.ContentLength / 1e6).toFixed(0) + ' MB' : '';
+    const online  = prod.Online ? '✓ Online' : '⚠ Offline — solicitar en Data Workspace';
+    const prodName = prod.Name;
+
+    slog(`Encontrado: ${prodName.substring(0,50)}…`, 'ok');
+    slog(`Tamaño: ${sizeMB} · ${online}`, 'inf');
+
+    // La descarga directa requiere token CDSE — no disponible sin backend.
+    // Ruta correcta: Copernicus Browser → pestaña BUSCAR → pegar nombre → Download.
+    // Mostramos un panel con las dos opciones al estudiante.
+    showDownloadPanel(prodName, prod.Id, sizeMB, prod.Online);
+
+  } catch(e) {
+    slog(`Error al buscar producto: ${e.message}`, 'err');
+  } finally {
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }
+}
+
+// Instrucción paso a paso por colección — aparece en cada tarjeta de resultado
+const BROWSER_INSTRUCTIONS = {
+  'sentinel-2-l2a': '① <strong>Copiar nombre escena</strong> · ② Abrir <strong>Catálogo CDSE</strong> · ③ Iniciar sesión (cuenta gratuita) · ④ Clic en <strong>Download</strong> → descarga el .zip con todas las bandas GeoTIFF.',
+  'sentinel-1-grd':  '① <strong>Copiar nombre escena</strong> · ② Abrir <strong>Catálogo CDSE</strong> · ③ Iniciar sesión (cuenta gratuita) · ④ Clic en <strong>Download</strong> → descarga el .zip GeoTIFF SAR.',
+};
+
+// Copia el nombre del producto por índice — evita regex en atributos HTML onclick
+function copyProductName(idx, btn) {
+  const text = state.resultNames[idx] || '';
+  if (!text) return;
+  const doFeedback = (b) => {
+    const orig = b.textContent;
+    b.textContent = '✓ Copiado';
+    b.style.color = 'var(--accent)';
+    setTimeout(() => { b.textContent = orig; b.style.color = ''; }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => doFeedback(btn)).catch(() => fallbackCopy(text, btn));
+  } else {
+    fallbackCopy(text, btn);
+    doFeedback(btn);
+  }
+}
+
+function fallbackCopy(text, btn) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
+function buildDirectLink(item, collection, idx) {
+  // PALSAR usa properties.granuleName como identificador, no item.id
+  const id = item.id || item.properties?.granuleName || item.properties?.fileName || '';
+  if (!id && collection !== 'palsar') return '';
+
+  if (collection === 'landsat') {
+    // Guardar fecha en resultNames para uso en openLandsatSearch(i)
+    // El bbox se lee desde state.bbox en el momento del clic
+    const dt = (item.properties?.datetime || '').split('T')[0];
+    state.resultDates = state.resultDates || [];
+    state.resultDates[idx] = dt;
+    return `<button class="dl-btn dl-copy" onclick="copyProductName(${idx}, this)"
+              title="Copia el ID de la escena Landsat">📋 Copiar ID</button>
+            <button class="dl-btn dl-cdse" onclick="openLandsatSearch(${idx})"
+              title="Abre Earthdata Search filtrado por fecha y área de esta escena">
+              ↗ Earthdata Search
+            </button>`;
+  }
+
+  if (collection === 'palsar') {
+    const granuleName = item.properties?.granuleName || item.properties?.fileName || id;
+    const dlUrl = item.properties?.downloadUrl || '';
+    // Descarga directa si hay URL — requiere sesión Earthdata activa en el browser
+    // Si no hay downloadUrl, fallback a ASF Vertex con polígono
+    return dlUrl
+      ? `<button class="dl-btn dl-copy" onclick="copyProductName(${idx}, this)"
+            title="Copia el nombre del granulo">
+            📋 Copiar ID
+          </button>
+          <a class="dl-btn dl-asf" href="${dlUrl}" target="_blank"
+            title="Descarga directa del .zip — requiere sesión activa en urs.earthdata.nasa.gov">
+            ⬇ Descargar .zip
+          </a>`
+      : `<button class="dl-btn dl-asf" onclick="openASF()"
+            title="Abre ASF Vertex con tu área preconfigurada">
+            ↗ ASF Vertex
+          </button>
+          ${granuleName ? `<button class="dl-btn dl-copy" onclick="copyProductName(${idx}, this)"
+            title="Copiar nombre del granulo">📋 Copiar ID</button>` : ''}`;
+  }
+
+  // Sentinel: enlace directo al producto por nombre en el catálogo OData
+
+  // ── Sentinel-1 / Sentinel-2: botón copiar nombre + catálogo CDSE ──
+  // El STAC devuelve item.id SIN extensión.
+  // El OData filtra por Name que para S1 incluye .SAFE, para S2 también.
+  const productName = id.endsWith('.SAFE') ? id : id + '.SAFE';
+  
+    const copyBtnHtml = `<button
+    class="dl-btn dl-copy"
+    onclick="copyProductName(${idx}, this)"
+    title="Copia el nombre exacto de la escena">
+    📋 Copiar nombre
+  </button>`;
+
+  // productName seguro para onclick: guardado en state.resultNames[idx], no inline
+  return `${copyBtnHtml}
+          <button class="dl-btn dl-cdse"
+            onclick="openCDSEDownload(state.resultNames[${idx}], this)"
+            title="Muestra el tamaño, disponibilidad e instrucciones paso a paso para descargar esta escena desde CDSE">
+            📥 Instrucciones de descarga
+          </button>`;
+}
+
+function getBboxCenter() {
+  if (!state.bbox) return [0,0];
+  const [w,s,e,n] = state.bbox;
+  return [((w+e)/2).toFixed(4), ((s+n)/2).toFixed(4)];
+}
+
+// ══════════════════════════════════════════════════
+//  GOOGLE EARTH ENGINE - GENERACIÓN DE SCRIPTS
+// ══════════════════════════════════════════════════
+
+const GEE_COLLECTIONS = {
+  'sentinel-2-l2a': { 
+    name: 'Sentinel-2 L2A', 
+    eeId: 'COPERNICUS/S2_SR', 
+    bands: ['B2','B3','B4','B5','B6','B7','B8','B8A','B11','B12'],
+    sensorTag: 'S2'
+  },
+  'sentinel-1-grd': { 
+    name: 'Sentinel-1 GRD', 
+    eeId: 'COPERNICUS/S1_GRD', 
+    bands: ['VV','VH'],
+    sensorTag: 'S1'
+  },
+  'landsat': { 
+    name: 'Landsat 8/9 HLS', 
+    eeId: 'LANDSAT/LC09/C02/T1_L2', 
+    bands: ['B1','B2','B3','B4','B5','B6','B7'],
+    sensorTag: 'Landsat'
+  },
+  'palsar': { 
+    name: 'ALOS PALSAR-2', 
+    eeId: 'JAXA/ALOS/PALSAR-2/Level2_2/ScanSAR', 
+    bands: ['HH','HV'],
+    sensorTag: 'PALSAR'
+  }
+};
+
+const INDEX_NAMES = {
+  'NDVI': 'Vegetación (Diferencia Normalizada)',
+  'EVI': 'Vegetación Mejorado',
+  'SAVI': 'Vegetación Ajustado por Suelo',
+  'NDRE': 'Borde Rojo (Diferencia Normalizada)',
+  'NDWI': 'Agua (Diferencia Normalizada)',
+  'MNDWI': 'Agua Modificado',
+  'BSI': 'Suelo Desnudo',
+  'NDBI': 'Urbano (Diferencia Normalizada)',
+  'NBR': 'Quemados (Diferencia Normalizada)',
+  'Clay Index': 'Minerales Arcillosos',
+  'Iron Oxide': 'Óxidos de Hierro',
+  'LST': 'Temperatura Superficial',
+  'Ratio VV/VH': 'Ratio Polarización SAR',
+  'Ratio HH/HV': 'Ratio Polarización PALSAR',
+  'Sigma0 dB': 'Retrodispersión (dB)'
+};
+
+function getIndicesForCollection(collectionId) {
+  const gee = GEE_COLLECTIONS[collectionId];
+  if (!gee) return [];
+  
+  if (gee.sensorTag === 'S1' || gee.sensorTag === 'PALSAR') {
+    return collectionId === 'sentinel-1-grd' 
+      ? ['Ratio VV/VH', 'Sigma0 dB']
+      : ['Ratio HH/HV'];
+  }
+  
+  const indices = [];
+  INDICES_DATA.forEach(cat => {
+    cat.indices.forEach(idx => {
+      if (idx.sensors && idx.sensors.includes(gee.sensorTag)) {
+        indices.push(idx.name);
+      }
+    });
+  });
+  
+  return indices;
+}
+
+const GEE_PYTHON_TEMPLATES = {
+  'sentinel-2-l2a': {
+    load: `import ee
+ee.Initialize()
+
+# Sentinel-2 L2A - Reflectancia de superficie
+collection = ee.ImageCollection('COPERNICUS/S2_SR')`,
+    filter: `.filterDate('{{START_DATE}}', '{{END_DATE}}')
+  .filterBounds(ee.Geometry.BBox(w, s, e, n))
+  .filter(ee.Filter.lt('CLOUD_COVERAGE_ASSESSMENT', 20))`,
+    viz: `.map(lambda img: img.visualize(bands=['B4','B3','B2'], min=0, max=3000))`,
+    ndvi: `def calc_ndvi(img):
+  ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
+  return img.addBands(ndvi)
+collection = collection.map(calc_ndvi)`,
+    export: `.export(filename_prefix='sentinel2_export', folder='GEE')`
+  },
+  'sentinel-1-grd': {
+    load: `import ee
+ee.Initialize()
+
+# Sentinel-1 GRD - Retrodispersión sigma0
+collection = ee.ImageCollection('COPERNICUS/S1_GRD')`,
+    filter: `.filterDate('{{START_DATE}}', '{{END_DATE}}')
+  .filterBounds(ee.Geometry.BBox(w, s, e, n))
+  .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
+  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))`,
+    viz: `.map(lambda img: img.select('VV').visualize(min=-20, max=0))`,
+    ratio: `def calc_ratio(img):
+  ratio = img.select('VV').divide(img.select('VH')).rename('VV_VH_Ratio')
+  return img.addBands(ratio)
+collection = collection.map(calc_ratio)`,
+    export: `.export(filename_prefix='sentinel1_export', folder='GEE')`
+  },
+  'landsat': {
+    load: `import ee
+ee.Initialize()
+
+# Landsat 8/9 Collection 2 Tier 1 - Reflectancia de superficie
+collection = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')`,
+    filter: `.filterDate('{{START_DATE}}', '{{END_DATE}}')
+  .filterBounds(ee.Geometry.BBox(w, s, e, n))
+  .filter(ee.Filter.lt('CLOUD_COVER', 20))`,
+    viz: `.map(lambda img: img.visualize(bands=['B4','B3','B2'], min=0, max=3000))`,
+    ndvi: `def calc_ndvi(img):
+  ndvi = img.normalizedDifference(['B5', 'B4']).rename('NDVI')
+  return img.addBands(ndvi)
+collection = collection.map(calc_ndvi)`,
+    export: `.export(filename_prefix='landsat_export', folder='GEE')`
+  },
+  'palsar': {
+    load: `import ee
+ee.Initialize()
+
+# ALOS PALSAR-2 ScanSAR - Retrodispersión
+collection = ee.ImageCollection('JAXA/ALOS/PALSAR-2/Level2_2/ScanSAR')`,
+    filter: `.filterDate('{{START_DATE}}', '{{END_DATE}}').filterBounds(ee.Geometry.BBox(w, s, e, n))`,
+    viz: `.map(lambda img: img.select('HH').visualize(min=0, max=8000))`,
+    ratio: `def calc_ratio(img):
+  ratio = img.select('HH').divide(img.select('HV')).rename('HH_HV_Ratio')
+  return img.addBands(ratio)
+collection = collection.map(calc_ratio)`,
+    export: `.export(filename_prefix='palsar_export', folder='GEE')`
+  }
+};
+
+const GEE_JS_TEMPLATES = {
+  'sentinel-2-l2a': {
+    load: `// Sentinel-2 L2A - Reflectancia de superficie
+var collection = ee.ImageCollection('COPERNICUS/S2_SR');`,
+    filter: `  .filterDate('{{START_DATE}}', '{{END_DATE}}')
+  .filterBounds(ee.Geometry.BBox(w, s, e, n))
+  .filter(ee.Filter.lt('CLOUD_COVERAGE_ASSESSMENT', 20));`,
+    viz: `var vis = collection.map(function(img) {
+  return img.visualize({bands: ['B4','B3','B2'], min: 0, max: 3000});
+});`,
+    ndvi: `var ndvi = collection.map(function(img) {
+  return img.normalizedDifference(['B8', 'B4']).rename('NDVI');
+});`,
+    export: `Export.image.toDrive({image: result, description: 'sentinel2_export', folder: 'GEE'});`
+  },
+  'sentinel-1-grd': {
+    load: `// Sentinel-1 GRD - Retrodispersión sigma0
+var collection = ee.ImageCollection('COPERNICUS/S1_GRD');`,
+    filter: `  .filterDate('{{START_DATE}}', '{{END_DATE}}')
+  .filterBounds(ee.Geometry.BBox(w, s, e, n))
+  .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
+  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'));`,
+    viz: `var vis = collection.map(function(img) {
+  return img.select('VV').visualize({min: -20, max: 0});
+});`,
+    ratio: `var ratio = collection.map(function(img) {
+  return img.select('VV').divide(img.select('VH')).rename('VV_VH_Ratio');
+});`,
+    export: `Export.image.toDrive({image: result, description: 'sentinel1_export', folder: 'GEE'});`
+  },
+  'landsat': {
+    load: `// Landsat 8/9 Collection 2 Tier 1
+var collection = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2');`,
+    filter: `  .filterDate('{{START_DATE}}', '{{END_DATE}}')
+  .filterBounds(ee.Geometry.BBox(w, s, e, n))
+  .filter(ee.Filter.lt('CLOUD_COVER', 20));`,
+    viz: `var vis = collection.map(function(img) {
+  return img.visualize({bands: ['B4','B3','B2'], min: 0, max: 3000});
+});`,
+    ndvi: `var ndvi = collection.map(function(img) {
+  return img.normalizedDifference(['B5', 'B4']).rename('NDVI');
+});`,
+    export: `Export.image.toDrive({image: result, description: 'landsat_export', folder: 'GEE'});`
+  },
+  'palsar': {
+    load: `// ALOS PALSAR-2 ScanSAR - Retrodispersión
+var collection = ee.ImageCollection('JAXA/ALOS/PALSAR-2/Level2_2/ScanSAR');`,
+    filter: `  .filterDate('{{START_DATE}}', '{{END_DATE}}').filterBounds(ee.Geometry.BBox(w, s, e, n));`,
+    viz: `var vis = collection.map(function(img) {
+  return img.select('HH').visualize({min: 0, max: 8000});
+});`,
+    ratio: `var ratio = collection.map(function(img) {
+  return img.select('HH').divide(img.select('HV')).rename('HH_HV_Ratio');
+});`,
+    export: `Export.image.toDrive({image: result, description: 'palsar_export', folder: 'GEE'});`
+  }
+};
+
+function showGEEModal(idx) {
+  const item = state.results[idx];
+  if (!item) return;
+  
+  const collection = state.selectedCollection;
+  const geeInfo = GEE_COLLECTIONS[collection];
+  if (!geeInfo) {
+    alert('Esta colección no está disponible en Google Earth Engine');
+    return;
+  }
+
+  const prev = document.getElementById('gee-modal');
+  if (prev) prev.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'gee-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(8,11,18,.9); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn .2s ease;
+  `;
+
+  const bbox = state.bbox || [-74.5, 4.0, -73.5, 5.0];
+  const [w,s,e,n] = bbox;
+
+  modal.innerHTML = `
+    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:12px;
+                padding:24px 28px;max-width:720px;width:95%;position:relative;max-height:90vh;overflow-y:auto;">
+      <button onclick="document.getElementById('gee-modal').remove()"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;
+               color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">×</button>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <span style="font-size:28px;">🌐</span>
+        <div>
+          <div style="font-family:var(--outfit);font-size:20px;font-weight:500;color:var(--text);">
+            Google Earth Engine
+          </div>
+          <div style="font-family:var(--mono);font-size:14px;color:var(--accent);">
+            ${geeInfo.name}
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button onclick="setGEELang('js', this)" id="gee-lang-js"
+          class="dl-btn dl-ee" style="flex:1;min-width:120px;">📜 JavaScript</button>
+        <button onclick="setGEELang('python', this)" id="gee-lang-py"
+          class="dl-btn" style="flex:1;min-width:120px;background:transparent;color:var(--muted);border:1px solid var(--border);">
+          🐍 Python (Colab)
+        </button>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">TIPO DE SCRIPT</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+          <button onclick="setGEEOption('viz', this)" class="gee-opt-btn" data-opt="viz">🗺️ Cargar + visualizar</button>
+          <button onclick="setGEEOption('index', this)" class="gee-opt-btn" data-opt="index">📊 Cargar + índice</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div id="gee-indices-row" style="display:none;margin-bottom:12px;">
+          <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;">ÍNDICE A CALCULAR</div>
+          <select id="gee-index-select" onchange="onGEEIndexChange(this.value)" style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:14px;padding:8px;border-radius:4px;">
+            ${getIndicesForCollection(collection).map(i => `<option value="${i}">${i}: ${INDEX_NAMES[i] || ''}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between;">
+          <span>CÓDIGO GENERADO</span>
+          <button onclick="copyGEECode()" style="background:none;border:none;color:var(--accent);font-family:var(--mono);font-size:12px;cursor:pointer;">📋 Copiar</button>
+        </div>
+        <pre id="gee-code-preview" style="background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:14px;font-family:var(--mono);font-size:13px;color:var(--text);overflow-x:auto;white-space:pre-wrap;max-height:300px;line-height:1.6;">// Selecciona un tipo de script y opciones...</pre>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('gee-modal').remove()"
+          style="background:transparent;color:var(--muted);border:1px solid var(--border);font-family:var(--mono);font-size:14px;padding:8px 16px;border-radius:4px;cursor:pointer;">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  // Inicializar con opciones por defecto
+  setTimeout(() => {
+    document.getElementById('gee-lang-js').click();
+    const firstOpt = document.querySelector('.gee-opt-btn');
+    if (firstOpt) firstOpt.click();
+  }, 50);
+
+  // Guardar estado del modal
+  const availableIndices = getIndicesForCollection(collection);
+  window._geeState = { collection, bbox: [w,s,e,n], lang: 'js', option: 'viz', index: availableIndices[0] || 'NDVI' };
+}
+
+function setGEELang(lang, btn) {
+  window._geeState.lang = lang;
+  document.getElementById('gee-lang-py').classList.toggle('dl-ee', lang === 'python');
+  document.getElementById('gee-lang-py').style.background = lang === 'python' ? 'rgba(168,85,247,.12)' : 'transparent';
+  document.getElementById('gee-lang-py').style.color = lang === 'python' ? '#a855f7' : 'var(--muted)';
+  document.getElementById('gee-lang-js').classList.toggle('dl-ee', lang === 'js');
+  document.getElementById('gee-lang-js').style.background = lang === 'js' ? 'rgba(168,85,247,.12)' : 'transparent';
+  document.getElementById('gee-lang-js').style.color = lang === 'js' ? '#a855f7' : 'var(--muted)';
+  updateGEECode();
+}
+
+function setGEEOption(opt, btn) {
+  window._geeState.option = opt;
+  document.querySelectorAll('.gee-opt-btn').forEach(b => {
+    b.classList.remove('dl-ee');
+    b.style.background = 'transparent';
+    b.style.color = 'var(--muted)';
+    b.style.border = '1px solid var(--border)';
+  });
+  btn.classList.add('dl-ee');
+  btn.style.background = 'rgba(168,85,247,.12)';
+  btn.style.color = '#a855f7';
+  btn.style.border = '1px solid rgba(168,85,247,.25)';
+  
+  // Mostrar selector de índice solo si es opción de índice
+  document.getElementById('gee-indices-row').style.display = opt === 'index' ? 'block' : 'none';
+  updateGEECode();
+}
+
+function onGEEIndexChange(value) {
+  window._geeState.index = value;
+  updateGEECode();
+}
+
+function updateGEECode() {
+  const st = window._geeState;
+  const [w,s,e,n] = st.bbox;
+  const geeInfo = GEE_COLLECTIONS[st.collection];
+  
+  const templates = st.lang === 'python' ? GEE_PYTHON_TEMPLATES : GEE_JS_TEMPLATES;
+  const tpl = templates[st.collection];
+  
+  // Generar bbox con coordenadas numéricas para GEE
+  // Obtener fechas del formulario de búsqueda
+  const dStartEl = document.getElementById('d-start');
+  const dEndEl = document.getElementById('d-end');
+  const dStart = dStartEl ? dStartEl.value : '';
+  const dEnd = dEndEl ? dEndEl.value : '';
+  
+  // Si solo hay fecha de inicio, usar un rango de 30 días
+  let filterStart = dStart;
+  let filterEnd = dEnd || (dStart ? new Date(new Date(dStart).getTime() + 30*24*60*60*1000).toISOString().split('T')[0] : '');
+  
+  let code = '';
+  if (st.lang === 'python') {
+    // Python con geemap - usar coordenadas numéricas
+    const pyLoad = tpl.load.replace('w, s, e, n', `${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}`);
+    // Reemplazar las fechas en el filtro con placeholders
+    let pyFilter = tpl.filter.replace('w, s, e, n', `${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}`);
+    pyFilter = pyFilter.replace('{{START_DATE}}', filterStart);
+    pyFilter = pyFilter.replace('{{END_DATE}}', filterEnd);
+    
+    code = pyLoad + '\n';
+    if (st.option === 'viz' || st.option === 'index') {
+      code += 'collection = collection' + pyFilter + '\n\n';
+    }
+    if (st.option === 'viz') {
+      code += tpl.viz.replace('lambda img: img', 'lambda img: ') + '\n';
+    }
+    if (st.option === 'index') {
+      const idxMap = { 
+        'NDVI': 'ndvi', 'EVI': 'ndvi', 'NDWI': 'ndwi', 'BSI': 'bsi', 
+        'NDBI': 'ndbi', 'NBR': 'nbr', 'SAVI': 'savi', 'NDRE': 'ndre',
+        'MNDWI': 'mndwi', 'Clay Index': 'clay', 'Iron Oxide': 'iron'
+      };
+      
+      if (st.collection === 'sentinel-2-l2a') {
+        code += `\n# Calcular ${st.index}\n`;
+        
+        const s2Indices = {
+          'NDVI': `def calc_ndvi(img):
+  ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
+  return img.addBands(ndvi)
+collection = collection.map(calc_ndvi)`,
+          'EVI': `def calc_evi(img):
+  evi = img.expression('2.5 * (B8 - B4) / (B8 + 6*B4 - 7.5*B2 + 1)', {'B8':img.select('B8'),'B4':img.select('B4'),'B2':img.select('B2')}).rename('EVI')
+  return img.addBands(evi)
+collection = collection.map(calc_evi)`,
+          'SAVI': `def calc_savi(img):
+  savi = img.expression('((B8 - B4) / (B8 + B4 + 0.5)) * 1.5', {'B8':img.select('B8'),'B4':img.select('B4')}).rename('SAVI')
+  return img.addBands(savi)
+collection = collection.map(calc_savi)`,
+          'NDRE': `def calc_ndre(img):
+  ndre = img.normalizedDifference(['B8A', 'B5']).rename('NDRE')
+  return img.addBands(ndre)
+collection = collection.map(calc_ndre)`,
+          'NDWI': `def calc_ndwi(img):
+  ndwi = img.normalizedDifference(['B3', 'B8']).rename('NDWI')
+  return img.addBands(ndwi)
+collection = collection.map(calc_ndwi)`,
+          'MNDWI': `def calc_mndwi(img):
+  mndwi = img.normalizedDifference(['B3', 'B11']).rename('MNDWI')
+  return img.addBands(mndwi)
+collection = collection.map(calc_mndwi)`,
+          'BSI': `def calc_bsi(img):
+  bsi = img.expression('((B11+B4)-(B8+B2))/((B11+B4)+(B8+B2))', {'B11':img.select('B11'),'B4':img.select('B4'),'B8':img.select('B8'),'B2':img.select('B2')}).rename('BSI')
+  return img.addBands(bsi)
+collection = collection.map(calc_bsi)`,
+          'NDBI': `def calc_ndbi(img):
+  ndbi = img.normalizedDifference(['B11', 'B8']).rename('NDBI')
+  return img.addBands(ndbi)
+collection = collection.map(calc_ndbi)`,
+          'NBR': `def calc_nbr(img):
+  nbr = img.normalizedDifference(['B8', 'B12']).rename('NBR')
+  return img.addBands(nbr)
+collection = collection.map(calc_nbr)`,
+          'Clay Index': `def calc_clay(img):
+  clay = img.select('B11').divide(img.select('B12')).rename('Clay_Index')
+  return img.addBands(clay)
+collection = collection.map(calc_clay)`,
+          'Iron Oxide': `def calc_iron(img):
+  iron = img.select('B4').divide(img.select('B02')).rename('Iron_Oxide')
+  return img.addBands(iron)
+collection = collection.map(calc_iron)`
+        };
+        
+        code += s2Indices[st.index] || `def calc_idx(img):
+  idx = img.normalizedDifference(['B8', 'B4']).rename('${st.index}')
+  return img.addBands(idx)
+collection = collection.map(calc_idx)`;
+        
+      } else if (st.collection === 'sentinel-1-grd') {
+        code += `\n# Calcular Ratio VV/VH\ndef calc_ratio(img):
+  ratio = img.select('VV').divide(img.select('VH')).rename('VV_VH_Ratio')
+  return img.addBands(ratio)
+collection = collection.map(calc_ratio)`;
+      } else if (st.collection === 'landsat') {
+        code += `\n# Calcular ${st.index}\n`;
+        
+        const lsIndices = {
+          'NDVI': `def calc_ndvi(img):
+  ndvi = img.normalizedDifference(['B5', 'B4']).rename('NDVI')
+  return img.addBands(ndvi)
+collection = collection.map(calc_ndvi)`,
+          'EVI': `def calc_evi(img):
+  evi = img.expression('2.5 * (B5 - B4) / (B5 + 6*B4 - 7.5*B2 + 1)', {'B5':img.select('B5'),'B4':img.select('B4'),'B2':img.select('B2')}).rename('EVI')
+  return img.addBands(evi)
+collection = collection.map(calc_evi)`,
+          'SAVI': `def calc_savi(img):
+  savi = img.expression('((B5 - B4) / (B5 + B4 + 0.5)) * 1.5', {'B5':img.select('B5'),'B4':img.select('B4')}).rename('SAVI')
+  return img.addBands(savi)
+collection = collection.map(calc_savi)`,
+          'NDWI': `def calc_ndwi(img):
+  ndwi = img.normalizedDifference(['B3', 'B5']).rename('NDWI')
+  return img.addBands(ndwi)
+collection = collection.map(calc_ndwi)`,
+          'BSI': `def calc_bsi(img):
+  bsi = img.expression('((B6+B4)-(B5+B2))/((B6+B4)+(B5+B2))', {'B6':img.select('B6'),'B4':img.select('B4'),'B5':img.select('B5'),'B2':img.select('B2')}).rename('BSI')
+  return img.addBands(bsi)
+collection = collection.map(calc_bsi)`,
+          'NDBI': `def calc_ndbi(img):
+  ndbi = img.normalizedDifference(['B6', 'B5']).rename('NDBI')
+  return img.addBands(ndbi)
+collection = collection.map(calc_ndbi)`,
+          'NBR': `def calc_nbr(img):
+  nbr = img.normalizedDifference(['B5', 'B7']).rename('NBR')
+  return img.addBands(nbr)
+collection = collection.map(calc_nbr)`,
+          'Iron Oxide': `def calc_iron(img):
+  iron = img.select('B4').divide(img.select('B1')).rename('Iron_Oxide')
+  return img.addBands(iron)
+collection = collection.map(calc_iron)`,
+          'LST': `# Temperatura superficial - requiere conversión de cuentas digitales
+def calc_lst(img):
+  # Factor de escala para Landsat Collection 2
+  lst = img.select('B10').multiply(0.00341802).add Kelvin(149.0)).subtract(273.15)
+  return img.addBands(lst.rename('LST'))
+collection = collection.map(calc_lst)`,
+          'MNDWI': `def calc_mndwi(img):
+  mndwi = img.normalizedDifference(['B3', 'B6']).rename('MNDWI')
+  return img.addBands(mndwi)
+collection = collection.map(calc_mndwi)`
+        };
+        
+        code += lsIndices[st.index] || `def calc_idx(img):
+  idx = img.normalizedDifference(['B5', 'B4']).rename('${st.index}')
+  return img.addBands(idx)
+collection = collection.map(calc_idx)`;
+        
+      } else if (st.collection === 'palsar') {
+        code += `\n# Calcular Ratio HH/HV\ndef calc_ratio(img):
+  ratio = img.select('HH').divide(img.select('HV')).rename('HH_HV_Ratio')
+  return img.addBands(ratio)
+collection = collection.map(calc_ratio)`;
+      }
+    }
+    code += `\n\n# Añadir al mapa (usando geemap)\n# map.add_layer(collection.first())`;
+  } else {
+    // JavaScript - usar coordenadas numéricas y fechas del formulario
+    const jsLoad = tpl.load.replace('w, s, e, n', `${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}`);
+    let jsFilter = tpl.filter.replace('w, s, e, n', `${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}`);
+    jsFilter = jsFilter.replace('{{START_DATE}}', filterStart);
+    jsFilter = jsFilter.replace('{{END_DATE}}', filterEnd);
+    const bboxGeom = `ee.Geometry.BBox(${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)})`;
+    const clipFunc = `.map(function(img) { return img.clip(${bboxGeom}); })`;
+    
+    code = jsLoad + '\n';
+    if (st.option === 'viz' || st.option === 'index') {
+      code += 'collection = collection' + jsFilter + '\n\n';
+    }
+    if (st.option === 'viz') {
+      // Para PALSAR, usar HH directamente. Para otros, usar visualize estándar
+      if (st.collection === 'palsar') {
+        code += `var vis = collection.map(function(img) {
+  return img.clip(${bboxGeom}).select('HH').visualize({min: 0, max: 8000});
+});
+Map.addLayer(vis, {}, "Visualización");
+
+Export.image.toDrive({
+  image: vis.median(),
+  description: 'palsar_export',
+  scale: 25,
+  region: ${bboxGeom},
+  folder: 'SatGuide_GEE'
+});`;
+      } else {
+        code += `var vis = collection.map(function(img) {
+  return img.clip(${bboxGeom}).visualize({bands: ['B4','B3','B2'], min: 0, max: 3000});
+});
+Map.addLayer(vis, {}, "Visualización");
+
+// Descargar imagen (mejor calidad - imagen con menos nubes)
+Export.image.toDrive({
+  image: vis.qualityMosaic('CLOUD_COVERAGE_ASSESSMENT'),
+  description: 'visualizacion_export',
+  scale: 10,
+  region: ${bboxGeom},
+  folder: 'SatGuide_GEE'
+});`;
+      }
+    }
+    if (st.option === 'index') {
+      code += '\n\n';
+      
+      if (st.collection === 'sentinel-2-l2a') {
+        const s2IndicesJS = {
+          'NDVI': `var ndvi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B8', 'B4']).rename('NDVI');
+});
+Map.addLayer(ndvi, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'NDVI');
+
+Export.image.toDrive({image: ndvi.qualityMosaic('CLOUD_COVERAGE_ASSESSMENT'), description: 'NDVI_export', scale: 10, region: ${bboxGeom}, folder: 'SatGuide_GEE'});`,
+          'EVI': `var evi = collection${clipFunc}.map(function(img) {
+  return img.expression('2.5 * (B8 - B4) / (B8 + 6*B4 - 7.5*B2 + 1)', {'B8':img.select('B8'),'B4':img.select('B4'),'B2':img.select('B2')}).rename('EVI');
+});
+Map.addLayer(evi, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'EVI');
+
+Export.image.toDrive({image: evi.qualityMosaic('CLOUD_COVERAGE_ASSESSMENT'), description: 'EVI_export', scale: 10, region: ${bboxGeom}, folder: 'SatGuide_GEE'});`,
+          'SAVI': `var savi = collection${clipFunc}.map(function(img) {
+  return img.expression('((B8 - B4) / (B8 + B4 + 0.5)) * 1.5', {'B8':img.select('B8'),'B4':img.select('B4')}).rename('SAVI');
+});
+Map.addLayer(savi, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'SAVI');`,
+          'NDRE': `var ndre = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B8A', 'B5']).rename('NDRE');
+});
+Map.addLayer(ndre, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'NDRE');`,
+          'NDWI': `var ndwi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B3', 'B8']).rename('NDWI');
+});
+Map.addLayer(ndwi, {min: -1, max: 1, palette: ['brown', 'blue']}, 'NDWI');`,
+          'MNDWI': `var mndwi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B3', 'B11']).rename('MNDWI');
+});
+Map.addLayer(mndwi, {min: -1, max: 1, palette: ['brown', 'blue']}, 'MNDWI');`,
+          'BSI': `var bsi = collection${clipFunc}.map(function(img) {
+  return img.expression('((B11+B4)-(B8+B2))/((B11+B4)+(B8+B2))', {'B11':img.select('B11'),'B4':img.select('B4'),'B8':img.select('B8'),'B2':img.select('B2')}).rename('BSI');
+});
+Map.addLayer(bsi, {min: -1, max: 1, palette: ['green', 'brown']}, 'BSI');`,
+          'NDBI': `var ndbi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B11', 'B8']).rename('NDBI');
+});
+Map.addLayer(ndbi, {min: -1, max: 1, palette: ['green', 'red']}, 'NDBI');`,
+          'NBR': `var nbr = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B8', 'B12']).rename('NBR');
+});
+Map.addLayer(nbr, {min: -1, max: 1, palette: ['green', 'red']}, 'NBR');`,
+          'Clay Index': `var clay = collection${clipFunc}.map(function(img) {
+  return img.select('B11').divide(img.select('B12')).rename('Clay_Index');
+});
+Map.addLayer(clay, {min: 0, max: 3, palette: ['white', 'brown']}, 'Clay Index');`,
+          'Iron Oxide': `var iron = collection${clipFunc}.map(function(img) {
+  return img.select('B4').divide(img.select('B2')).rename('Iron_Oxide');
+});
+Map.addLayer(iron, {min: 0, max: 3, palette: ['white', 'red']}, 'Iron Oxide');`
+        };
+        code += s2IndicesJS[st.index] || s2IndicesJS['NDVI'];
+        
+      } else if (st.collection === 'sentinel-1-grd') {
+        code += `var ratio = collection${clipFunc}.map(function(img) {
+  return img.select('VV').divide(img.select('VH')).rename('VV_VH_Ratio');
+});
+Map.addLayer(ratio, {min: 0, max: 15, palette: ['blue', 'yellow', 'red']}, 'Ratio VV/VH');`;
+        
+      } else if (st.collection === 'landsat') {
+        const lsIndicesJS = {
+          'NDVI': `var ndvi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B5', 'B4']).rename('NDVI');
+});
+Map.addLayer(ndvi, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'NDVI');
+
+Export.image.toDrive({image: ndvi.qualityMosaic('CLOUD_COVER'), description: 'NDVI_Landsat_export', scale: 30, region: ${bboxGeom}, folder: 'SatGuide_GEE'});`,
+          'EVI': `var evi = collection${clipFunc}.map(function(img) {
+  return img.expression('2.5 * (B5 - B4) / (B5 + 6*B4 - 7.5*B2 + 1)', {'B5':img.select('B5'),'B4':img.select('B4'),'B2':img.select('B2')}).rename('EVI');
+});
+Map.addLayer(evi, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'EVI');
+
+Export.image.toDrive({image: evi.qualityMosaic('CLOUD_COVER'), description: 'EVI_Landsat_export', scale: 30, region: ${bboxGeom}, folder: 'SatGuide_GEE'});`,
+          'SAVI': `var savi = collection${clipFunc}.map(function(img) {
+  return img.expression('((B5 - B4) / (B5 + B4 + 0.5)) * 1.5', {'B5':img.select('B5'),'B4':img.select('B4')}).rename('SAVI');
+});
+Map.addLayer(savi, {min: -1, max: 1, palette: ['brown', 'yellow', 'green']}, 'SAVI');`,
+          'NDWI': `var ndwi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B3', 'B5']).rename('NDWI');
+});
+Map.addLayer(ndwi, {min: -1, max: 1, palette: ['brown', 'blue']}, 'NDWI');`,
+          'MNDWI': `var mndwi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B3', 'B6']).rename('MNDWI');
+});
+Map.addLayer(mndwi, {min: -1, max: 1, palette: ['brown', 'blue']}, 'MNDWI');`,
+          'BSI': `var bsi = collection${clipFunc}.map(function(img) {
+  return img.expression('((B6+B4)-(B5+B2))/((B6+B4)+(B5+B2))', {'B6':img.select('B6'),'B4':img.select('B4'),'B5':img.select('B5'),'B2':img.select('B2')}).rename('BSI');
+});
+Map.addLayer(bsi, {min: -1, max: 1, palette: ['green', 'brown']}, 'BSI');`,
+          'NDBI': `var ndbi = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B6', 'B5']).rename('NDBI');
+});
+Map.addLayer(ndbi, {min: -1, max: 1, palette: ['green', 'red']}, 'NDBI');`,
+          'NBR': `var nbr = collection${clipFunc}.map(function(img) {
+  return img.normalizedDifference(['B5', 'B7']).rename('NBR');
+});
+Map.addLayer(nbr, {min: -1, max: 1, palette: ['green', 'red']}, 'NBR');`,
+          'Iron Oxide': `var iron = collection${clipFunc}.map(function(img) {
+  return img.select('B4').divide(img.select('B1')).rename('Iron_Oxide');
+});
+Map.addLayer(iron, {min: 0, max: 3, palette: ['white', 'red']}, 'Iron Oxide');`,
+          'LST': `var lst = collection${clipFunc}.map(function(img) {
+  var kelvin = img.select('B10').multiply(0.00341802).add(149.0);
+  return kelvin.subtract(273.15).rename('LST');
+});
+Map.addLayer(lst, {min: 15, max: 40, palette: ['blue', 'yellow', 'red']}, 'LST');`
+        };
+        code += lsIndicesJS[st.index] || lsIndicesJS['NDVI'];
+        
+      } else if (st.collection === 'palsar') {
+        code += `var ratio = collection${clipFunc}.map(function(img) {
+  return img.select('HH').divide(img.select('HV')).rename('HH_HV_Ratio');
+});
+Map.addLayer(ratio, {min: 0, max: 15, palette: ['blue', 'yellow', 'red']}, 'Ratio HH/HV');`;
+      }
+    }
+    code += '\n\n// Centrar mapa en el área\nMap.setCenter(' + ((w+e)/2).toFixed(4) + ', ' + ((s+n)/2).toFixed(4) + ', 10);';
+  }
+
+  document.getElementById('gee-code-preview').textContent = code;
+}
+
+function copyGEECode() {
+  const code = document.getElementById('gee-code-preview').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.querySelector('#gee-code-preview + div button');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function openBrowser() {
+  const [lng, lat] = getBboxCenter();
+  const col = state.selectedCollection;
+  // datasetId del Copernicus Browser por colección
+  // S1 IW modo estándar sobre tierra: VV+VH
+  const ds = document.getElementById('d-start').value || '';
+  const de = document.getElementById('d-end').value   || '';
+  // No enviamos datasetId: el browser lo ignora si hay sesión activa.
+  // El estudiante selecciona la colección manualmente usando las instrucciones del panel.
+  let url = `https://dataspace.copernicus.eu/browser/?zoom=10&lat=${lat}&lng=${lng}`;
+  if (ds) url += `&fromTime=${ds}T00:00:00.000Z`;
+  if (de) url += `&toTime=${de}T23:59:59.999Z`;
+  window.open(url, '_blank');
+}
+
+function openASF() {
+  // ASF Vertex sí acepta polygon WKT por URL — usar buildASFUrl
+  const url = buildASFUrl(state.bbox, 'ALOS');
+  window.open(url, '_blank');
+}
+
+function showBrowserButton() {
+  const col = state.selectedCollection;
+  document.getElementById('btn-browser').style.display = (col !== 'palsar' && col !== 'dem') ? 'flex' : 'none';
+}
+
+function clearResults() {
+  state.results = [];
+  state.activeResult = null;
+  document.getElementById('results-bar').style.display = 'none';
+  document.getElementById('results-list').innerHTML = '';
+  footprintLayers.forEach(l => { if(map) map.removeLayer(l); });
+  footprintLayers = [];
+  document.getElementById('btn-browser').style.display = 'none';
+  const eeBtn = document.getElementById('btn-ee');
+  if (eeBtn) eeBtn.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════
+//  REFERENCIA
+// ══════════════════════════════════════════════════
+function renderReference() {
+  // S2 Table
+  const s2t = document.getElementById('s2-table');
+  s2t.innerHTML = `
+    <thead><tr>
+      <th>Banda</th><th>Long. onda</th><th>Res.</th><th>Nombre</th><th>Aplicaciones principales</th>
+    </tr></thead>
+    <tbody>
+      ${S2_BANDS.map(b => `<tr>
+        <td class="bt-band"><span class="band-swatch" style="background:${b.color}"></span>${b.band}</td>
+        <td class="bt-nm">${b.nm} nm</td>
+        <td class="bt-res" style="color:${b.res==='10m'?'var(--accent)':b.res==='20m'?'var(--gold)':'var(--muted)'}">${b.res}</td>
+        <td style="white-space:nowrap">${b.name}</td>
+        <td class="bt-use">${b.use}</td>
+      </tr>`).join('')}
+    </tbody>`;
+
+  // Landsat Table
+  const lst = document.getElementById('ls-table');
+  lst.innerHTML = `
+    <thead><tr>
+      <th>Banda</th><th>Long. onda</th><th>Res.</th><th>Nombre</th><th>Aplicaciones principales</th>
+    </tr></thead>
+    <tbody>
+      ${LS_BANDS.map(b => `<tr>
+        <td class="bt-band"><span class="band-swatch" style="background:${b.color}"></span>${b.band}</td>
+        <td class="bt-nm">${b.nm}${b.nm.includes('µm')?'':' nm'}</td>
+        <td class="bt-res" style="color:${b.res==='30m'?'var(--gold)':b.res==='15m'?'var(--accent)':'var(--muted)'}">${b.res}</td>
+        <td style="white-space:nowrap">${b.name}</td>
+        <td class="bt-use">${b.use}</td>
+      </tr>`).join('')}
+    </tbody>`;
+
+  // Indices
+  renderIndices();
+
+  // Polarizations
+  const pg = document.getElementById('pol-grid');
+  pg.innerHTML = POL_DATA.map(p => `
+    <div class="pol-card" style="--pc-color:${p.color}">
+      <div class="pol-code">${p.code}</div>
+      <div class="pol-desc">${p.desc}</div>
+      <div class="pol-uses">
+        <ul>${p.uses.map(u => `<li>${u}</li>`).join('')}</ul>
+      </div>
+    </div>
+  `).join('');
+
+  // DEM Comparison
+  const dc = document.getElementById('dem-comp');
+  dc.innerHTML = DEM_COMP_DATA.map(d => `
+    <div class="dem-card ${d.best ? 'best' : ''}">
+      <div class="dc-name">${d.name}</div>
+      <div class="dc-res">${d.res}<span class="dc-unit"> ${d.unit}</span></div>
+      <div class="dc-note">${d.note}</div>
+      ${d.warn ? '<div class="dc-warn">⚠ No usar como DEM</div>' : ''}
+      ${d.restricted ? '<div class="dc-warn">🔒 No libre</div>' : ''}
+      ${d.best ? '<div class="badge-best">RECOMENDADO</div>' : ''}
+      <div class="dc-portal">${d.portal}</div>
+    </div>
+  `).join('');
+
+  // FAQ
+  const fc = document.getElementById('faq-container');
+  fc.innerHTML = FAQ_DATA.map((f, i) => `
+    <div class="acc-item" id="acc-${i}">
+      <div class="acc-head" onclick="toggleFaqAcc(${i})">
+        <span>${f.q}</span>
+        <span class="acc-arrow">▶</span>
+      </div>
+      <div class="acc-body" id="acc-body-${i}">${f.a}</div>
+    </div>
+  `).join('');
+}
+
+function renderIndices() {
+  const container = document.getElementById('indices-container');
+  if (!container) return;
+
+  container.innerHTML = INDICES_DATA.map(cat => `
+    <div class="idx-category">
+      <div class="idx-cat-label" style="color:${cat.color}">${cat.category}</div>
+      <div class="idx-grid">
+        ${cat.indices.map(idx => `
+          <div class="idx-card" style="--idx-color:${cat.color}">
+            <div class="idx-header">
+              <span class="idx-name">${idx.name}</span>
+              <span class="idx-sensors">${idx.sensors.join(' · ')}</span>
+            </div>
+            <div class="idx-fullname">${idx.fullName}</div>
+            <div class="idx-formula">${idx.formula}</div>
+            ${idx.ranges ? `
+            <div class="idx-ranges">
+              ${idx.ranges.map(r => `
+                <div class="idx-range-row">
+                  <span class="idx-range-val">${r.val}</span>
+                  <span class="idx-range-label">${r.label}</span>
+                </div>`).join('')}
+            </div>` : ''}
+            <div class="idx-uses">
+              <ul>${idx.uses.map(u => `<li>${u}</li>`).join('')}</ul>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleFaqAcc(i) {
+  const item = document.getElementById('acc-' + i);
+  const body = document.getElementById('acc-body-' + i);
+  const isOpen = item.classList.contains('open');
+  item.classList.toggle('open', !isOpen);
+  body.classList.toggle('show', !isOpen);
+}
+
+// ══════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════
+function setSpinner(on) {
+  document.getElementById('spin-wrap').classList.toggle('show', on);
+  document.getElementById('btn-search').disabled = on;
+}
+
+function slog(msg, type = 'inf') {
+  const el = document.getElementById('search-log');
+  el.style.display = 'block';
+  const ts = new Date().toLocaleTimeString('es', { hour12: false });
+  const div = document.createElement('div');
+  div.className = 'l-' + type;
+  div.textContent = `[${ts}] ${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+// ── INSTRUCCIONES DEM ────────────────────────────────────────────────────────
+function showDEMInstructions(demOption) {
+  const prev = document.getElementById('dl-panel');
+  if (prev) prev.remove();
+
+  // Construir URL del browser centrada en el AOI del usuario
+  const [lng, lat] = state.bbox
+    ? [(+(state.bbox[0]+state.bbox[2])/2).toFixed(4), (+(state.bbox[1]+state.bbox[3])/2).toFixed(4)]
+    : ['-74.0', '4.5'];
+
+  // URLs por tipo de DEM
+  const demConfig = {
+    copdem30:  {
+      browserUrl: `https://dataspace.copernicus.eu/browser/?zoom=10&lat=${lat}&lng=${lng}`,
+      collection: 'Copernicus DEM → <strong>Copernicus 30</strong>',
+      portal: 'Copernicus Browser (CDSE)',
+      note: 'Selecciona la versión más reciente (2024_1). Cada tile es un archivo GeoTIFF de ~30 MB.'
+    },
+    copdem90:  {
+      browserUrl: `https://dataspace.copernicus.eu/browser/?zoom=10&lat=${lat}&lng=${lng}`,
+      collection: 'Copernicus DEM → <strong>Copernicus 90</strong>',
+      portal: 'Copernicus Browser (CDSE)',
+      note: 'Menor resolución (90 m), archivos más pequeños. Útil para análisis regionales.'
+    },
+    srtm: {
+      // OpenTopography acepta bbox por URL — descarga directa sin cuenta
+      getBrowserUrl: (bbox) => bbox
+        ? `https://portal.opentopography.org/raster?opentopoID=OTSRTM.082015.4326.1&minX=${bbox[0]}&minY=${bbox[1]}&maxX=${bbox[2]}&maxY=${bbox[3]}`
+        : 'https://portal.opentopography.org/raster?opentopoID=OTSRTM.082015.4326.1',
+      collection: '<strong>SRTM GL1</strong> (1 arc-second / 30 m)',
+      portal: 'OpenTopography',
+      note: 'Dato de 2000. Usar solo si necesitas compatibilidad con trabajos previos. Sin cuenta requerida.'
+    },
+    nasadem: {
+      getBrowserUrl: (bbox) => bbox
+        ? `https://portal.opentopography.org/raster?opentopoID=OTSRTM.042013.4326.1&minX=${bbox[0]}&minY=${bbox[1]}&maxX=${bbox[2]}&maxY=${bbox[3]}`
+        : 'https://portal.opentopography.org/raster?opentopoID=OTSRTM.042013.4326.1',
+      collection: '<strong>NASADEM</strong>',
+      portal: 'OpenTopography',
+      note: 'SRTM reprocessado (2020). Mejor calidad que SRTM original. Sin cuenta requerida.'
+    },
+    aw3d30: {
+      getBrowserUrl: (bbox) => bbox
+        ? `https://portal.opentopography.org/raster?opentopoID=OTALOS.112016.4326.2&minX=${bbox[0]}&minY=${bbox[1]}&maxX=${bbox[2]}&maxY=${bbox[3]}`
+        : 'https://portal.opentopography.org/raster?opentopoID=OTALOS.112016.4326.2',
+      collection: '<strong>AW3D30 v3.2</strong>',
+      portal: 'OpenTopography',
+      note: 'Sin cuenta requerida. Descarga directa recortada a tu área de interés.',
+      clarification: `
+        <div style="background:rgba(59,127,255,.08);border:1px solid rgba(59,127,255,.25);
+          border-radius:6px;padding:10px 14px;font-size:15px;color:#93c5fd;
+          line-height:1.7;margin-bottom:16px;">
+          <strong style="color:var(--text);">⚠ AW3D30 ≠ ALOS PALSAR RTC</strong><br>
+          Ambos provienen del satélite ALOS pero son productos distintos:<br>
+          • <strong style="color:var(--text)">AW3D30</strong> — modelo de elevación digital (DEM) a 30 m,
+            generado a partir del sensor óptico PRISM por estereoscopía. Descarga desde portal JAXA.<br>
+          • <strong style="color:var(--text)">ALOS PALSAR RTC 12.5 m</strong> — imagen SAR de amplitud
+            (retrodispersión), no un DEM. Se descarga desde ASF Vertex.
+            <a href="#" onclick="showPage('referencia', null);document.getElementById('dl-panel').remove();return false;"
+               style="color:var(--accent2)">Ver referencia técnica →</a>
+        </div>`
+    },
+
+  };
+
+  const cfg = demConfig[demOption.id] || demConfig.copdem30;
+  // Resolver URL con bbox si la opción tiene función getBrowserUrl
+  const bbox = state.bbox;
+  if (cfg.getBrowserUrl) cfg.browserUrl = cfg.getBrowserUrl(bbox);
+  const isCDSE = demOption.id === 'copdem30' || demOption.id === 'copdem90';
+
+  const panel = document.createElement('div');
+  panel.id = 'dl-panel';
+  panel.style.cssText = `
+    position:fixed;inset:0;z-index:99999;
+    background:rgba(8,11,18,.85);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;
+    animation:fadeIn .2s ease;
+  `;
+
+  panel.innerHTML = `
+    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:12px;
+                padding:28px 32px;max-width:540px;width:90%;position:relative;">
+      <button onclick="document.getElementById('dl-panel').remove()"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;
+               color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">×</button>
+
+      <div style="font-family:var(--outfit);font-size:18px;font-weight:500;margin-bottom:4px;">
+        Descargar ${demOption.name}
+      </div>
+      <div style="font-family:var(--mono);font-size:17px;color:var(--accent);margin-bottom:4px;">
+        ${demOption.res} · DSM · ${demOption.note}
+      </div>
+      <div style="font-family:var(--mono);font-size:17px;color:var(--muted);margin-bottom:20px;">
+        Portal: ${cfg.portal}
+      </div>
+
+      ${isCDSE ? `
+      <div style="background:rgba(240,192,64,.07);border:1px solid rgba(240,192,64,.2);
+        border-radius:6px;padding:10px 14px;font-size:15px;color:#f0c040;margin-bottom:18px;line-height:1.7;">
+        ⚠ El DEM se distribuye por <strong>tiles geográficos</strong> que cubren tu área
+        de interés — no por escenas con fecha. Selecciona los tiles que intersectan tu zona de estudio.
+      </div>` : ''}
+
+      ${cfg.clarification || ''}
+      <div style="font-family:var(--outfit);font-size:15px;font-weight:400;margin-bottom:12px;">
+        Pasos para descargar:
+      </div>
+      <ol style="font-size:17px;color:var(--muted);line-height:2.1;padding-left:18px;margin-bottom:20px;">
+        ${isCDSE ? `
+        <li>Abre el <strong style="color:var(--text)">Copernicus Browser</strong> e inicia sesión con tu cuenta gratuita CDSE</li>
+        <li>Navega hasta tu área de interés en el mapa</li>
+        <li>En la pestaña <strong style="color:var(--text)">VISUALIZAR</strong>, despliega <strong style="color:var(--text)">Colecciones de datos → Copernicus DEM</strong> y selecciona <strong style="color:var(--text)">${demOption.name === 'GLO-30' ? 'Copernicus 30' : 'Copernicus 90'}</strong></li>
+        <li>Haz clic en el enlace <strong style="color:var(--text)">"Encontrar productos para la vista actual"</strong> que aparece debajo del botón de fecha</li>
+        <li>En la lista de resultados, haz clic en <strong style="color:var(--text)">⬇ Download</strong> en cada tile que necesites</li>
+        <li>Cada tile es un <strong style="color:var(--text)">GeoTIFF georreferenciado</strong> listo para abrir en QGIS o ArcGIS Pro</li>
+        ` : `
+        ${cfg.portal === 'Portal JAXA' ? `
+        <li>Abre el <strong style="color:var(--text)">portal AW3D30 de JAXA</strong></li>
+        <li>Haz clic en <strong style="color:var(--text)">Download</strong> y regístrate con una cuenta gratuita JAXA si aún no tienes una</li>
+        <li>Selecciona los tiles que cubren tu área de interés en el mapa interactivo</li>
+        <li>Descarga en formato <strong style="color:var(--text)">GeoTIFF</strong></li>
+        <li>Cada tile es un <strong style="color:var(--text)">GeoTIFF georreferenciado</strong> listo para QGIS o ArcGIS Pro</li>
+        ` : cfg.portal === 'ASF Vertex' ? `
+        <li>Abre <strong style="color:var(--text)">ASF Vertex</strong> — el enlace incluye tu área de interés como polígono de búsqueda</li>
+        <li>Verifica que el dataset seleccionado es <strong style="color:var(--text)">ALOS</strong> y haz clic en <strong style="color:var(--text)">BUSCAR</strong></li>
+        <li>En los resultados, filtra por tipo de producto <strong style="color:var(--text)">RTC_HI_RES</strong></li>
+        <li>Selecciona la escena de interés y haz clic en <strong style="color:var(--text)">⬇ Descargas</strong></li>
+        <li>Requiere cuenta <strong style="color:var(--text)">NASA Earthdata</strong> gratuita para descargar</li>
+        ` : `
+        <li>Abre el portal <strong style="color:var(--text)">${cfg.portal}</strong> — el enlace ya incluye las coordenadas de tu área de interés</li>
+        <li>Verifica que el área resaltada en el mapa corresponde a tu zona de estudio</li>
+        <li>Selecciona el formato de salida: <strong style="color:var(--text)">GeoTIFF</strong></li>
+        <li>Haz clic en <strong style="color:var(--text)">Submit</strong> — la descarga inicia sin necesidad de crear cuenta</li>
+        <li>El archivo descargado es un <strong style="color:var(--text)">GeoTIFF georreferenciado</strong> listo para QGIS o ArcGIS Pro</li>
+        `}
+        `}
+      </ol>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="${cfg.browserUrl}" target="_blank"
+          class="dl-btn dl-cdse" style="font-size:15px;padding:8px 14px;text-decoration:none;">
+          ↗ Abrir ${cfg.portal}
+        </a>
+        <button onclick="document.getElementById('dl-panel').remove()"
+          class="dl-btn" style="font-size:15px;padding:8px 14px;
+          background:transparent;color:var(--muted);border:1px solid var(--border);">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+  panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── LANDSAT SEARCH ───────────────────────────────────────────────────────────
+function openLandsatSearch(idx) {
+  const bbox = state.bbox || [-180,-90,180,90];
+  const dt   = (state.resultDates || [])[idx] || '';
+  let url = `https://search.earthdata.nasa.gov/search/granules?p=C3442503899-USGS_EROS&pg[0][v]=f&pg[0][gsk]=-start_date&sb[0]=${bbox[0]}%2C${bbox[1]}%2C${bbox[2]}%2C${bbox[3]}`;
+  if (dt) url += `&qt=${dt}T00%3A00%3A00.000Z%2C${dt}T23%3A59%3A59.999Z`;
+  window.open(url, '_blank');
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── PANEL DE DESCARGA ─────────────────────────────────────────────────────────
+function showDownloadPanel(productName, productId, sizeMB, isOnline) {
+  // Eliminar panel previo si existe
+  const prev = document.getElementById('dl-panel');
+  if (prev) prev.remove();
+
+  // URL del Copernicus Browser en pestaña BUSCAR — no acepta nombre por URL,
+  // pero sí podemos centrar el mapa y el estudiante busca manualmente.
+  // La única ruta autenticada desde el browser es el Data Workspace.
+  const workspaceUrl = `https://dataspace.copernicus.eu/workspace`;
+  const browserUrl   = `https://dataspace.copernicus.eu/browser/`;
+
+  const panel = document.createElement('div');
+  panel.id = 'dl-panel';
+  panel.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(8,11,18,.85); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn .2s ease;
+  `;
+
+  panel.innerHTML = `
+    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:12px;
+                padding:28px 32px;max-width:520px;width:90%;position:relative;">
+      <button onclick="document.getElementById('dl-panel').remove()"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;
+               color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">×</button>
+
+      <div style="font-family:var(--outfit);font-size:18px;font-weight:500;margin-bottom:6px;">
+        Descargar escena
+      </div>
+      <div style="font-family:var(--mono);font-size:17px;color:var(--accent);
+                  word-break:break-all;margin-bottom:4px;">${productName}</div>
+      <div style="font-family:var(--mono);font-size:17px;color:var(--muted);margin-bottom:20px;">
+        ${sizeMB ? sizeMB + ' · ' : ''}${isOnline ? '✓ Disponible inmediatamente' : '⚠ Requiere solicitud previa (Offline)'}
+      </div>
+
+      ${!isOnline ? `<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);
+        border-radius:6px;padding:10px 14px;font-size:15px;color:#fba060;margin-bottom:16px;line-height:1.7;">
+        Este producto está en archivo (Offline). Debes solicitarlo primero en el
+        <a href="${workspaceUrl}" target="_blank" style="color:var(--accent2)">Data Workspace de CDSE</a>
+        y esperar a que esté disponible (puede tardar horas).
+      </div>` : ''}
+
+      <div style="font-family:var(--outfit);font-size:15px;font-weight:400;margin-bottom:12px;color:var(--text);">
+        Pasos para descargar:
+      </div>
+      <ol style="font-size:17px;color:var(--muted);line-height:2;padding-left:18px;margin-bottom:20px;">
+        <li>Copia el nombre de la escena con el botón <strong style="color:var(--text)">📋 Copiar nombre</strong></li>
+        <li>Abre el <strong style="color:var(--text)">Copernicus Browser</strong> e inicia sesión con tu cuenta gratuita CDSE</li>
+        <li>En el panel izquierdo, cambia a la pestaña <strong style="color:var(--text)">BUSCAR</strong></li>
+        <li>Pega el nombre en el campo de búsqueda, desplázate al final del panel y haz clic en el botón <strong style="color:var(--text)">BUSCAR</strong></li>
+        <li>En el resultado encontrado, haz clic en el ícono <strong style="color:var(--text)">⬇ Download</strong> para iniciar la descarga</li>
+      </ol>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="copyProductNameDirect('${productName.replace(/'/g, "\'")}', this)"
+          class="dl-btn dl-copy" style="font-size:15px;padding:8px 14px;">
+          📋 Copiar nombre escena
+        </button>
+        <a href="${browserUrl}" target="_blank"
+          class="dl-btn dl-cdse" style="font-size:15px;padding:8px 14px;text-decoration:none;">
+          ↗ Abrir Copernicus Browser
+        </a>
+        <button onclick="document.getElementById('dl-panel').remove()"
+          class="dl-btn" style="font-size:15px;padding:8px 14px;
+          background:transparent;color:var(--muted);border:1px solid var(--border);">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+  panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
+}
+
+// Copia directa desde el panel (sin índice — recibe el string directamente)
+function copyProductNameDirect(name, btn) {
+  const doFeedback = (b) => {
+    const orig = b.textContent;
+    b.textContent = '✓ Copiado';
+    b.style.color = 'var(--accent)';
+    setTimeout(() => { b.textContent = orig; b.style.color = ''; }, 2000);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(name).then(() => doFeedback(btn)).catch(() => fallbackCopy(name, btn));
+  } else {
+    fallbackCopy(name, btn);
+    doFeedback(btn);
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+function toggleHelpAcc(btn) {
+  const body = btn.nextElementSibling;
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  // cerrar todos
+  document.querySelectorAll('.hacc-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.hacc-btn').forEach(b => b.classList.remove('open'));
+  // abrir el clicado si estaba cerrado
+  if (!isOpen) {
+    body.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+
+function init() {
+  const hoy  = new Date();
+  const hace90 = new Date(hoy); hace90.setDate(hoy.getDate() - 90);
+  document.getElementById('d-end').value   = hoy.toISOString().split('T')[0];
+  document.getElementById('d-start').value = hace90.toISOString().split('T')[0];
+
+  renderAnalysisGrid();
+  renderCollections();
+  renderReference();
+  loadVersionHistory();
+}
+
+function loadVersionHistory() {
+  fetch('versions.json')
+    .then(res => res.json())
+    .then(versions => {
+      const container = document.getElementById('version-history');
+      if (!container) return;
+      
+      let html = '';
+      versions.forEach((v, i) => {
+        const isLatest = i === 0;
+        const badgeBg = isLatest ? 'var(--accent)' : 'var(--border2)';
+        const badgeColor = isLatest ? 'var(--bg)' : 'var(--text)';
+        
+        html += '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:12px;">';
+        html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">';
+        html += '<span style="background:' + badgeBg + ';color:' + badgeColor + ';padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:13px;font-weight:700;">v' + v.version + '</span>';
+        html += '<span style="color:var(--muted);">' + v.date + '</span>';
+        if (isLatest) {
+          html += '<span style="background:var(--accent);color:var(--bg);padding:2px 8px;border-radius:4px;font-size:11px;">Última versión</span>';
+        }
+        html += '</div>';
+        html += '<ul style="color:var(--muted);padding-left:20px;font-size:14px;line-height:1.8;">';
+        v.changes.forEach(c => {
+          html += '<li>' + c + '</li>';
+        });
+        html += '</ul></div>';
+      });
+      
+      container.innerHTML = html;
+    })
+    .catch(err => console.error('Error cargando historial:', err));
+}
+
+init();
+</script>
+</body>
+</html>
