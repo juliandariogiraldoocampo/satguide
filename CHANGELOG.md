@@ -8,6 +8,12 @@
 - Agregada capa "Límites y lugares" (Esri) activable desde un selector de capas
 - Publicado el repositorio en GitHub
 
+### 16:40 - Favicon y depuración
+- Agregado `favicon.svg` (S y órbita extraídas de `logo.svg`); elimina el 404 de `/favicon.ico`
+- Depurada la carpeta local: copias `index - copia*.html` enviadas a la Papelera
+- Depurada la carpeta del servidor: archivos no usados por el sitio movidos a `/var/backups/satguide-2026-10-16/retirados/`
+- El sitio solo necesita: `index.html`, `logo.svg`, `favicon.svg`, `versions.json`, `img/jdgo.jpg`
+
 ## 2026-04-05
 
 ### 22:30 - Restauración desde backup

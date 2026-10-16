@@ -4,7 +4,8 @@
     "date": "16-10-2026",
     "changes": [
       "Mapa base satelital gratuito (Esri World Imagery) en reemplazo de CARTO, que ahora exige API key",
-      "Capa opcional de límites y nombres de lugares con selector de capas en el mapa"
+      "Capa opcional de límites y nombres de lugares con selector de capas en el mapa",
+      "Ícono de pestaña (favicon) con la S y la órbita del logo"
     ]
   },
   {
